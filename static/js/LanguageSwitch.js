@@ -27,7 +27,7 @@ class LanguageSwitch {
     this.init();
   }
 
-  // 初始化组件（立即渲染按钮，不再阻塞于 i18next）
+  // 初始化组件（避免在 i18next 未初始化时触发切换）
   init() {
     // 始终先创建 UI
     this.createContainer();
@@ -35,16 +35,18 @@ class LanguageSwitch {
     this.createDropdown();
     this.bindEvents();
 
-    // 如果 i18next 就绪，则进行页面翻译更新；否则先显示默认语言按钮
+    const lang = this.getLanguageByCode(this.currentLanguage) || this.getLanguageByCode(this.options.defaultLanguage);
+    if (lang) this.updateButtonContent(lang);
+
+    // 等待 i18next 初始化事件后刷新页面翻译（不主动切换语言，避免竞态）
     if (typeof window.i18next !== 'undefined') {
-      this.setLanguage(this.currentLanguage, false);
-    } else {
-      const lang = this.getLanguageByCode(this.currentLanguage) || this.getLanguageByCode(this.options.defaultLanguage);
-      if (lang) this.updateButtonContent(lang);
-      // 等待 i18next 初始化事件，再完成语言切换与页面更新
-      document.addEventListener('i18next:initialized', () => {
-        this.setLanguage(this.currentLanguage, false);
-      });
+      if (window.i18next.isInitialized) {
+        this.updatePageTranslations();
+      } else {
+        document.addEventListener('i18next:initialized', () => {
+          this.updatePageTranslations();
+        }, { once: true });
+      }
     }
   }
 
@@ -53,18 +55,23 @@ class LanguageSwitch {
     this.init();
   }
 
-  // 创建容器
+  // 创建容器（避免与挂载点 ID 冲突）
   createContainer() {
+    const mountId = this.options.containerId;
+    const altId = mountId && mountId.endsWith('-container') ? mountId.replace('-container', '') : null;
+    const target = document.getElementById(mountId) || (altId ? document.getElementById(altId) : null);
+
     this.container = document.createElement('div');
-    this.container.id = this.options.containerId;
     this.container.className = 'lang-switch-container';
+    this.container.id = `${mountId}-inner`;
     this.container.setAttribute('role', 'navigation');
     this.container.setAttribute('aria-label', 'Language switcher');
-    
-    // 查找目标容器，如果不存在则添加到body
-    const targetContainer = document.getElementById(this.options.containerId.replace('-container', '')) || document.getElementById(this.options.containerId);
-    if (targetContainer) {
-      targetContainer.appendChild(this.container);
+
+    if (target) {
+      // 清理已存在的语言切换器，避免重复按钮
+      const existing = target.querySelector('.lang-switch-container');
+      if (existing) existing.remove();
+      target.appendChild(this.container);
     } else {
       document.body.appendChild(this.container);
     }
@@ -260,6 +267,14 @@ class LanguageSwitch {
       return;
     }
 
+    // i18next 未初始化时直接返回，等待初始化事件触发后再切换
+    if (typeof window.i18next === 'undefined' || !window.i18next.isInitialized) {
+      document.addEventListener('i18next:initialized', () => {
+        this.setLanguage(langCode, saveToStorage);
+      }, { once: true });
+      return;
+    }
+
     const previousLang = this.currentLanguage;
     this.currentLanguage = langCode;
     
@@ -275,31 +290,12 @@ class LanguageSwitch {
     }
     
     // 触发i18next语言切换
-    if (window.i18n && window.i18n.changeLanguage) {
-      try {
-        await window.i18n.changeLanguage(langCode);
-        // 更新页面上的所有data-i18n元素
-        this.updatePageTranslations();
-      } catch (i18nError) {
-        console.error('i18next.changeLanguage error:', i18nError);
-        this.showError('Failed to change language with i18next');
-        return;
-      }
-    } else if (typeof window.i18next !== 'undefined') {
-      try {
-        await window.i18next.changeLanguage(langCode);
-        this.updatePageTranslations();
-      } catch (err) {
-        console.warn('Direct i18next changeLanguage failed:', err);
-      }
-    } else {
-      // i18n 未就绪，则等事件再更新
-      document.addEventListener('i18next:initialized', async () => {
-        if (typeof window.i18next !== 'undefined') {
-          await window.i18next.changeLanguage(langCode);
-          this.updatePageTranslations();
-        }
-      }, { once: true });
+    try {
+      await window.i18next.changeLanguage(langCode);
+      this.updatePageTranslations();
+    } catch (err) {
+      console.error('i18next.changeLanguage error:', err);
+      return;
     }
     
     // 保存到后端
@@ -316,14 +312,46 @@ class LanguageSwitch {
     }
   }
 
+  // 简易错误提示（避免方法缺失）
+  showError(msg) {
+    try {
+      console.warn('[LanguageSwitch]', msg);
+      this.button?.classList.add('error');
+      this.button?.setAttribute('data-tooltip', String(msg));
+      setTimeout(() => {
+        this.button?.classList.remove('error');
+        this.button?.removeAttribute('data-tooltip');
+      }, 2000);
+    } catch (_) {}
+  }
+
   updatePageTranslations() {
     try {
+      const translator = (window.i18n?.t || window.i18next?.t);
+      if (!translator) return;
       const elements = document.querySelectorAll('[data-i18n]');
       elements.forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (!key) return;
-        const text = (window.i18n?.t || window.i18next?.t)?.(key) || el.textContent;
-        if (text) el.textContent = text;
+        const raw = el.getAttribute('data-i18n');
+        if (!raw) return;
+        const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+        parts.forEach(part => {
+          const match = part.match(/^\[(.+?)\](.+)$/);
+          if (match) {
+            const attr = match[1].toLowerCase();
+            const key = match[2];
+            const val = translator(key) || '';
+            if (attr === 'text') {
+              el.textContent = val;
+            } else if (attr === 'html') {
+              el.innerHTML = val;
+            } else {
+              el.setAttribute(match[1], val);
+            }
+          } else {
+            const val = translator(part) || '';
+            if (val) el.textContent = val;
+          }
+        });
       });
     } catch (error) {
       console.warn('Failed to update page translations:', error);

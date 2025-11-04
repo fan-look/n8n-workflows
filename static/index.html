@@ -9,11 +9,12 @@
   <!-- i18next 相关脚本（改用 jsDelivr 以符合 CSP） -->
   <script src="https://cdn.jsdelivr.net/npm/i18next@23.7.6/dist/umd/i18next.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/i18next-browser-languagedetector@8.0.0/dist/umd/i18nextBrowserLanguageDetector.min.js"></script>
+  <!-- i18next-http-backend 通过本地文件提供，无需外链 -->
 
   
   <!-- 本地脚本 -->
   <script src="/static/js/i18next-localstorage-backend.js"></script>
-  <script src="/static/js/LanguageSwitch.js" defer></script>
+  <script src="/static/js/LanguageSwitch.js?v=dev" defer></script>
   
   <!-- Mermaid -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
@@ -27,6 +28,8 @@
   <!-- 多语言配置脚本 -->
   <script src="/static/js/i18n-config.js" defer></script>
   
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'">
+
   <style>
     /* Modern CSS Reset and Base */
     * {
@@ -858,8 +861,8 @@
     <!-- Header -->
     <header class="header">
       <div class="container">
-        <h1 class="title" data-i18n="[text]common.page_title">⚡ N8N Workflow Documentation</h1>
-        <p class="subtitle" data-i18n="[text]common.subtitle">Lightning-fast workflow browser with instant search</p>
+        <h1 class="title" data-i18n="common.page_title">⚡ N8N Workflow Documentation</h1>
+        <p class="subtitle" data-i18n="common.subtitle">Lightning-fast workflow browser with instant search</p>
         <div class="stats">
           <div class="stat">
             <span class="stat-number" id="totalCount">0</span>
@@ -886,7 +889,7 @@
       <div class="container">
         <div class="search-section">
           <input type="text" id="searchInput" class="search-input"
-            placeholder="Search workflows by name, description, or integration..." data-i18n="[placeholder]search_placeholder">
+            placeholder="Search workflows by name, description, or integration..." data-i18n="[placeholder]search.placeholder">
           <div id="languageSwitchContainer"></div>
           <button id="themeToggle" class="theme-toggle" data-i18n="[title]common.toggle_theme" title="Toggle theme">🌙</button>
         </div>
@@ -1036,20 +1039,6 @@
   </div>
 
   <script>
-    // Initialize language switch
-    document.addEventListener('DOMContentLoaded', function() {
-      // Initialize language switch component first
-      if (window.LanguageSwitch) {
-        const languageSwitch = new window.LanguageSwitch('languageSwitchContainer');
-        languageSwitch.render();
-      }
-      
-      // Initialize i18next after language switch is ready
-      if (window.i18n && window.i18n.initI18next) {
-        window.i18n.initI18next();
-      }
-    });
-
     // Enhanced Workflow App with Full Functionality
     class WorkflowApp {
       constructor() {
@@ -1129,6 +1118,18 @@
         this.setupEventListeners();
         this.setupTheme();
         this.initMermaid();
+
+        // 初始化时立即更新翻译
+        this.updatePageTranslations();
+
+        // 监听语言切换事件
+        document.addEventListener('languageChanged', () => {
+          setTimeout(() => {
+            this.updatePageTranslations();
+            this.updateUI(); // 重新渲染界面
+          }, 100); // 给一点时间让语言切换完成
+        });
+
         await this.loadInitialData();
       }
 
@@ -1593,7 +1594,7 @@
                             <div class="workflow-meta">
                                 <div class="status-dot ${statusClass}"></div>
                                 <div class="complexity-dot ${complexityClass}"></div>
-                                <span>${workflow.node_count} nodes</span>
+                                <span>${workflow.node_count} ${this.t('workflow.nodes')}</span>
                                 <span class="category-badge">${this.escapeHtml(category)}</span>
                             </div>
                             <span class="trigger-badge">${this.escapeHtml(workflow.trigger_type)}</span>
@@ -1604,7 +1605,7 @@
                         
                         ${workflow.integrations.length > 0 ? `
                             <div class="workflow-integrations">
-                                <h4 class="integrations-title">Integrations (${workflow.integrations.length})</h4>
+                                <h4 class="integrations-title">${this.t('workflow.integrations')} (${workflow.integrations.length})</h4>
                                 <div class="integrations-list">
                                     ${integrations}
                                     ${moreIntegrations}
@@ -1624,11 +1625,11 @@
         const category = this.getWorkflowCategory(workflow.filename);
         this.elements.modalStats.innerHTML = `
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-                        <div><strong>Status:</strong> ${workflow.active ? 'Active' : 'Inactive'}</div>
-                        <div><strong>Trigger:</strong> ${workflow.trigger_type}</div>
-                        <div><strong>Complexity:</strong> ${workflow.complexity}</div>
-                        <div><strong>Nodes:</strong> ${workflow.node_count}</div>
-                        <div><strong>Category:</strong> ${this.escapeHtml(category)}</div>
+                        <div><strong>${this.t('workflow.status')}:</strong> ${workflow.active ? this.t('workflow.enabled') : this.t('workflow.disabled')}</div>
+                        <div><strong>${this.t('workflow.trigger')}:</strong> ${workflow.trigger_type}</div>
+                        <div><strong>${this.t('workflow.complexity')}:</strong> ${workflow.complexity}</div>
+                        <div><strong>${this.t('workflow.nodes')}:</strong> ${workflow.node_count}</div>
+                        <div><strong>${this.t('workflow.category')}:</strong> ${this.escapeHtml(category)}</div>
                     </div>
                 `;
 
@@ -1638,7 +1639,7 @@
             .map(integration => `<span class="integration-tag">${this.escapeHtml(integration)}</span>`)
             .join(' ');
         } else {
-          this.elements.modalIntegrations.textContent = 'No integrations found';
+          this.elements.modalIntegrations.textContent = this.t('ui.no_integrations_found');
         }
 
         // Set download link
@@ -1663,8 +1664,8 @@
         this.isDragging = false;
 
         // Reset button states
-        this.elements.viewJsonBtn.textContent = '📄 View JSON';
-        this.elements.viewDiagramBtn.textContent = '📊 View Diagram';
+        this.elements.viewJsonBtn.textContent = this.t('ui.view_json');
+        this.elements.viewDiagramBtn.textContent = this.t('ui.view_diagram');
 
         // Reset copy button states
         this.resetCopyButton('copyJsonBtn');
@@ -1678,19 +1679,19 @@
 
         if (isVisible) {
           this.elements.jsonSection.classList.add('hidden');
-          this.elements.viewJsonBtn.textContent = '📄 View JSON';
+          this.elements.viewJsonBtn.textContent = this.t('ui.view_json');
         } else {
           try {
-            this.elements.jsonViewer.textContent = 'Loading...';
+            this.elements.jsonViewer.textContent = this.t('ui.loading');
             this.elements.jsonSection.classList.remove('hidden');
-            this.elements.viewJsonBtn.textContent = '📄 Hide JSON';
+            this.elements.viewJsonBtn.textContent = this.t('ui.hide_json');
 
             const data = await this.apiCall(`/workflows/${this.currentWorkflow.filename}`);
             const jsonString = JSON.stringify(data.raw_json, null, 2);
             this.currentJsonData = jsonString;
             this.elements.jsonViewer.textContent = jsonString;
           } catch (error) {
-            this.elements.jsonViewer.textContent = 'Error loading JSON: ' + error.message;
+            this.elements.jsonViewer.textContent = this.t('ui.error_loading_json') + error.message;
             this.currentJsonData = null;
           }
         }
@@ -1703,12 +1704,12 @@
 
         if (isVisible) {
           this.elements.diagramSection.classList.add('hidden');
-          this.elements.viewDiagramBtn.textContent = '📊 View Diagram';
+          this.elements.viewDiagramBtn.textContent = this.t('ui.view_diagram');
         } else {
           try {
-            this.elements.diagramViewer.textContent = 'Loading diagram...';
+            this.elements.diagramViewer.textContent = this.t('ui.loading_diagram');
             this.elements.diagramSection.classList.remove('hidden');
-            this.elements.viewDiagramBtn.textContent = '📊 Hide Diagram';
+            this.elements.viewDiagramBtn.textContent = this.t('ui.hide_diagram');
 
             const data = await this.apiCall(`/workflows/${this.currentWorkflow.filename}/diagram`);
             this.currentDiagramData = data.diagram;
@@ -1730,7 +1731,7 @@
               }, 100);
             }
           } catch (error) {
-            this.elements.diagramViewer.textContent = 'Error loading diagram: ' + error.message;
+            this.elements.diagramViewer.textContent = this.t('ui.error_loading_diagram') + error.message;
             this.currentDiagramData = null;
           }
         }
@@ -1883,6 +1884,50 @@
         return div.innerHTML;
       }
 
+      // Helper function for translations
+      t(key, fallback = '') {
+        try {
+          return (window.i18n?.t || window.i18next?.t)?.(key) || fallback || key;
+        } catch (_) {
+          return fallback || key;
+        }
+      }
+
+      // Update page translations
+      updatePageTranslations() {
+        try {
+          const translator = (window.i18n?.t || window.i18next?.t);
+          if (!translator) return;
+
+          const elements = document.querySelectorAll('[data-i18n]');
+          elements.forEach(el => {
+            const raw = el.getAttribute('data-i18n');
+            if (!raw) return;
+            const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+            parts.forEach(part => {
+              const match = part.match(/^\[(.+?)\](.+)$/);
+              if (match) {
+                const attr = match[1].toLowerCase();
+                const key = match[2];
+                const val = translator(key) || '';
+                if (attr === 'text') {
+                  el.textContent = val;
+                } else if (attr === 'html') {
+                  el.innerHTML = val;
+                } else {
+                  el.setAttribute(match[1], val);
+                }
+              } else {
+                const val = translator(part) || '';
+                if (val) el.textContent = val;
+              }
+            });
+          });
+        } catch (error) {
+          console.warn('Failed to update page translations:', error);
+        }
+      }
+
       async copyToClipboard(text, buttonId) {
         if (!text) {
           console.warn('No content to copy');
@@ -1923,7 +1968,7 @@
         if (!button) return;
 
         const originalText = button.innerHTML;
-        button.innerHTML = '✅ Copied!';
+        button.innerHTML = this.t('ui.copied');
         button.classList.add('copied');
 
         setTimeout(() => {
@@ -1936,13 +1981,32 @@
         const button = document.getElementById(buttonId);
         if (!button) return;
 
-        button.innerHTML = '📋 Copy';
+        button.innerHTML = this.t('ui.copy');
         button.classList.remove('copied');
       }
     }
 
     // Initialize the app
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 初始化语言切换组件（避免重复渲染）
+      if (window.initLanguageSwitch) {
+        window.initLanguageSwitch({ containerId: 'languageSwitchContainer' });
+      } else if (window.LanguageSwitch) {
+        // 兼容旧初始化方式，但不调用 render，构造函数已执行 init
+        new window.LanguageSwitch('languageSwitchContainer');
+      }
+
+      // 初始化 i18next 并等待完成
+      if (window.i18n && window.i18n.initI18next) {
+        try {
+          await window.i18n.initI18next();
+          console.log('i18next initialized successfully');
+        } catch (error) {
+          console.error('Failed to initialize i18next:', error);
+        }
+      }
+
+      // 初始化应用程序
       window.workflowApp = new WorkflowApp();
     });
   </script>

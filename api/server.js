@@ -62,10 +62,10 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 静态文件服务
+// 静态文件服务（开发环境禁用缓存，避免前端脚本更新不生效）
 app.use('/static', express.static(path.join(__dirname, '../static'), {
-  maxAge: '1d',
-  etag: true,
+  maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
+  etag: process.env.NODE_ENV === 'production',
   lastModified: true
 }));
 

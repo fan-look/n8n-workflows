@@ -23,31 +23,43 @@
       versions: {},
       ...options
     };
-    
-    this.type = 'backend';
   }
+
+  // i18next 插件类型声明应为构造函数的静态属性
+  LocalStorageBackend.type = 'backend';
+
+  // 可选的 init 钩子以符合 i18next 接口
+  LocalStorageBackend.prototype.init = function(services, options) {
+    this.services = services;
+    if (options) {
+      this.options = Object.assign({}, this.options, options);
+    }
+  };
 
   // 读取翻译数据
   LocalStorageBackend.prototype.read = function(language, namespace, callback) {
     if (!this.options.enabled) {
-      return callback && callback(null, {});
+      if (typeof callback === 'function') callback(null, {});
+      return;
     }
-
+  
     try {
       const key = this.options.prefix + language + '_' + namespace;
       const data = localStorage.getItem(key);
       
       if (!data) {
-        return callback && callback(null, {});
+        if (typeof callback === 'function') callback(null, {});
+        return;
       }
-
+  
       const parsed = JSON.parse(data);
       
       // 检查版本
       const version = this.options.versions[language] || this.options.defaultVersion;
       if (parsed.version !== version) {
         localStorage.removeItem(key);
-        return callback && callback(null, {});
+        if (typeof callback === 'function') callback(null, {});
+        return;
       }
       
       // 检查过期时间
@@ -55,39 +67,42 @@
         const now = new Date().getTime();
         if (now - parsed.timestamp > this.options.expirationTime) {
           localStorage.removeItem(key);
-          return callback && callback(null, {});
+          if (typeof callback === 'function') callback(null, {});
+          return;
         }
       }
       
-      callback && callback(null, parsed.data || {});
+      if (typeof callback === 'function') callback(null, parsed.data || {});
     } catch (error) {
       console.error('LocalStorageBackend read error:', error);
-      callback && callback(error, {});
+      if (typeof callback === 'function') callback(error, {});
     }
   };
 
   // 保存翻译数据
   LocalStorageBackend.prototype.create = function(languages, namespace, key, fallbackValue, callback) {
     if (!this.options.enabled) {
-      return callback && callback();
+      if (typeof callback === 'function') callback();
+      return;
     }
-
+  
     try {
       // 这里可以实现保存缺失翻译的逻辑
       console.log('Missing translation:', { languages, namespace, key, fallbackValue });
-      callback && callback();
+      if (typeof callback === 'function') callback();
     } catch (error) {
       console.error('LocalStorageBackend create error:', error);
-      callback && callback(error);
+      if (typeof callback === 'function') callback(error);
     }
   };
 
   // 保存翻译数据（批量）
   LocalStorageBackend.prototype.save = function(language, namespace, data, callback) {
     if (!this.options.enabled) {
-      return callback && callback();
+      if (typeof callback === 'function') callback();
+      return;
     }
-
+  
     try {
       const key = this.options.prefix + language + '_' + namespace;
       const version = this.options.versions[language] || this.options.defaultVersion;
@@ -99,10 +114,10 @@
       };
       
       localStorage.setItem(key, JSON.stringify(storageData));
-      callback && callback();
+      if (typeof callback === 'function') callback();
     } catch (error) {
       console.error('LocalStorageBackend save error:', error);
-      callback && callback(error);
+      if (typeof callback === 'function') callback(error);
     }
   };
 
@@ -231,23 +246,13 @@
     }
   };
 
-  // 插件初始化函数
-  function initI18nextLocalStorageBackend() {
-    if (window.i18next && window.i18next.Backend) {
-      window.i18nextLocalStorageBackend = LocalStorageBackend;
-      window.I18nextLocalStorageBackend = LocalStorageBackend;
-      
-      // 向后兼容
-      if (typeof module !== 'undefined' && module.exports) {
-        module.exports = LocalStorageBackend;
-      }
-      
-      console.log('i18next localStorage backend plugin initialized');
-    } else {
-      console.warn('i18next is not available');
-    }
+  // 暴露构造函数到全局，移除自动注册逻辑
+  window.i18nextLocalStorageBackend = LocalStorageBackend;
+  window.I18nextLocalStorageBackend = LocalStorageBackend;
+
+  // 向后兼容 CommonJS
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = LocalStorageBackend;
   }
 
-  // 初始化插件
-  initI18nextLocalStorageBackend();
 })();

@@ -10,6 +10,23 @@
         return;
       }
 
+      // Load translations directly from JSON files as fallback
+      const loadTranslations = async (lng) => {
+        try {
+          const response = await fetch(`/static/locales/${lng}/translation.json`);
+          if (response.ok) {
+            return await response.json();
+          }
+        } catch (error) {
+          console.warn(`Failed to load translations for ${lng}:`, error);
+        }
+        return null;
+      };
+
+      // Load English translations as base
+      const enTranslations = await loadTranslations('en') || {};
+      const zhTranslations = await loadTranslations('zh') || {};
+
       // Optional plugins
       if (typeof window.i18nextBrowserLanguageDetector !== 'undefined') {
         window.i18next.use(window.i18nextBrowserLanguageDetector);
@@ -17,17 +34,14 @@
       if (typeof window.I18nextLocalStorageBackend !== 'undefined') {
         window.i18next.use(window.I18nextLocalStorageBackend);
       }
+      if (typeof window.i18nextHttpBackend !== 'undefined') {
+        window.i18next.use(window.i18nextHttpBackend);
+      }
 
-      await window.i18next.init({
+      const initOptions = {
         debug: true,
         fallbackLng: 'en',
         load: 'languageOnly',
-        backend: {
-          loadPath: '/api/i18n/translations/{{lng}}/{{ns}}',
-          addPath: '/api/i18n/translations/{{lng}}/{{ns}}',
-          expirationTime: 7 * 24 * 60 * 60 * 1000,
-          defaultVersion: 'v1.0'
-        },
         detection: {
           order: ['localStorage', 'navigator', 'htmlTag'],
           lookupLocalStorage: 'i18nextLng',
@@ -50,9 +64,33 @@
         contextSeparator: '_',
         preload: ['en'],
         partialBundledLanguages: true,
-        saveMissing: true,
-        saveMissingTo: 'all'
-      });
+        resources: {
+          en: {
+            translation: enTranslations
+          },
+          zh: {
+            translation: zhTranslations
+          }
+        }
+      };
+
+      // Only add backend configuration if backend is available
+      if (typeof window.I18nextLocalStorageBackend !== 'undefined') {
+        initOptions.backend = {
+          loadPath: '/api/i18n/translations/{{lng}}/{{ns}}',
+          addPath: '/api/i18n/translations/{{lng}}/{{ns}}',
+          expirationTime: 7 * 24 * 60 * 60 * 1000,
+          defaultVersion: 'v1.0'
+        };
+      }
+
+      // Only add saveMissing if backend is available
+      if (typeof window.I18nextLocalStorageBackend !== 'undefined') {
+        initOptions.saveMissing = true;
+        initOptions.saveMissingTo = 'all';
+      }
+
+      await window.i18next.init(initOptions);
 
       document.documentElement.lang = window.i18next.language;
       document.documentElement.setAttribute('data-language', window.i18next.language);
