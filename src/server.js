@@ -8,10 +8,23 @@ const fs = require('fs-extra');
 const { program } = require('commander');
 
 const WorkflowDatabase = require('./database');
+const i18nRoutes = require('../api/i18n-routes');
+const i18nAPI = require('../api/i18n-api');
 
 // Initialize Express app
 const app = express();
 const db = new WorkflowDatabase();
+
+// Initialize i18n database connection
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'n8n_workflows'
+};
+
+i18nAPI.initializeDatabasePool(dbConfig);
 
 // Security middleware
 app.use(helmet({
@@ -46,6 +59,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../static')));
+
+// i18n API routes
+app.use('/api', i18nRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -366,4 +382,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = app; 
+module.exports = app;

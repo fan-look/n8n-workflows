@@ -502,7 +502,7 @@ class WorkflowDatabase {
         }
       } else {
         countSql = `SELECT COUNT(*) as total FROM (${sql})`;
-        countParams = params.slice(0, -2); // Remove LIMIT and OFFSET for count
+        countParams = params.slice(); // Use same filters, no LIMIT/OFFSET yet
       }
 
       this.db.get(countSql, countParams, (err, countResult) => {
