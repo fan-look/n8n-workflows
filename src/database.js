@@ -624,7 +624,7 @@ class WorkflowDatabase {
       this.db.get(
         "SELECT * FROM workflows WHERE filename = ?",
         [filename],
-        (err, row) => {
+        async (err, row) => {
           if (err) {
             reject(err);
             return;
@@ -642,14 +642,36 @@ class WorkflowDatabase {
             tags: JSON.parse(row.tags || "[]"),
           };
 
-          // Load raw workflow JSON
+          // Load raw workflow JSON - handle subfolders
+          let workflowPath = path.join(this.workflowsDir, filename);
           try {
-            const workflowPath = path.join(this.workflowsDir, filename);
-            const rawWorkflow = fs.readJsonSync(workflowPath);
-            workflow.raw_workflow = rawWorkflow;
+            // Prefer the folder recorded in DB if present
+            if (row.folder && String(row.folder).trim()) {
+              const candidate = path.join(this.workflowsDir, row.folder, filename);
+              if (fs.existsSync(candidate)) {
+                workflowPath = candidate;
+              }
+            }
+
+            // Fallback: search recursively if file not found at expected path
+            if (!fs.existsSync(workflowPath)) {
+              const allFiles = await getAllJsonFiles(this.workflowsDir);
+              const match = allFiles.find((p) => path.basename(p) === filename);
+              if (match) {
+                workflowPath = match;
+              }
+            }
+
+            // Read JSON if path exists
+            if (fs.existsSync(workflowPath)) {
+              const rawWorkflow = fs.readJsonSync(workflowPath);
+              workflow.raw_workflow = rawWorkflow;
+            } else {
+              console.error(`Workflow file not found for ${filename} under ${this.workflowsDir}`);
+            }
           } catch (error) {
             console.error(
-              `Error loading raw workflow ${filename}:`,
+              `Error loading raw workflow ${filename} from ${workflowPath}:`,
               error.message
             );
           }

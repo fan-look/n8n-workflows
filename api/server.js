@@ -124,12 +124,18 @@ app.get('/api/workflows', async (req, res) => {
   }
 });
 
-// 获取单个工作流详情
+// 获取单个工作流详情（对齐前端字段：raw_json）
 app.get('/api/workflows/:filename', async (req, res) => {
   try {
     const { filename } = req.params;
     const detail = await db.getWorkflowDetail(filename);
     if (!detail) return res.status(404).json({ error: 'Workflow not found' });
+
+    // 对齐字段命名，保持向后兼容
+    if (detail.raw_workflow && !detail.raw_json) {
+      detail.raw_json = detail.raw_workflow;
+    }
+
     res.json(detail);
   } catch (error) {
     console.error('Error getting workflow detail:', error);
@@ -243,6 +249,24 @@ app.get('/api/category-mappings', async (req, res) => {
   }
 });
 
+// 生成 Mermaid 图接口（与前端 index.html/index-nodejs.html 对齐）
+app.get('/api/workflows/:filename/diagram', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const detail = await db.getWorkflowDetail(filename);
+    if (!detail || !(detail.raw_workflow || detail.raw_json)) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+
+    const raw = detail.raw_workflow || detail.raw_json;
+    const diagram = generateMermaidDiagram(raw?.nodes || [], raw?.connections || {});
+    return res.json({ diagram });
+  } catch (error) {
+    console.error('Error generating diagram:', error);
+    res.status(500).json({ error: 'Failed to generate diagram', message: error.message });
+  }
+});
+
 // 404处理
 app.use((req, res) => {
   res.status(404).json({
@@ -310,6 +334,55 @@ function startServer() {
 // 如果直接运行此文件，则启动服务器
 if (require.main === module) {
   startServer();
+}
+
+// 生成 Mermaid 图（简化、健壮）
+function generateMermaidDiagram(nodes, connections) {
+  try {
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return 'graph TD\n  Empty[No nodes found]';
+    }
+
+    // Map node name to safe ID
+    const idMap = new Map();
+    const sanitize = (name) => String(name || 'unknown')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    let diagram = 'graph TD\n';
+
+    // Add nodes
+    nodes.forEach((node, i) => {
+      const name = node?.name || `Node_${i}`;
+      const id = sanitize(name) || `node_${i}`;
+      idMap.set(name, id);
+      const type = (node?.type || '').split('.').pop();
+      diagram += `  ${id}["${name}\\n(${type || 'unknown'})"]\n`;
+    });
+
+    // Add connections (mermaid: source --> target)
+    if (connections && typeof connections === 'object') {
+      Object.entries(connections).forEach(([sourceName, outputs]) => {
+        const sourceId = idMap.get(sourceName) || sanitize(sourceName) || 'unknown_source';
+        const main = outputs?.main;
+        if (Array.isArray(main)) {
+          main.forEach((outputList) => {
+            if (Array.isArray(outputList)) {
+              outputList.forEach((conn) => {
+                const targetId = idMap.get(conn?.node) || sanitize(conn?.node) || 'unknown_target';
+                diagram += `  ${sourceId} --> ${targetId}\n`;
+              });
+            }
+          });
+        }
+      });
+    }
+
+    return diagram;
+  } catch (_) {
+    return 'graph TD\n  Error[Diagram generation failed]';
+  }
 }
 
 module.exports = app;
