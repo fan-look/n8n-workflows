@@ -62,16 +62,23 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 静态文件服务（开发环境禁用缓存，避免前端脚本更新不生效）
-app.use('/static', express.static(path.join(__dirname, '../static'), {
+// 静态文件服务（支持从构建输出目录读取：dist/static），开发环境禁用缓存
+const fs = require('fs');
+const STATIC_FALLBACK = path.join(__dirname, '../static');
+const STATIC_DIST = path.join(__dirname, '../dist/static');
+const STATIC_DIR = process.env.STATIC_DIR
+  ? path.resolve(process.env.STATIC_DIR)
+  : (fs.existsSync(STATIC_DIST) ? STATIC_DIST : STATIC_FALLBACK);
+
+app.use('/static', express.static(STATIC_DIR, {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
   etag: process.env.NODE_ENV === 'production',
   lastModified: true
 }));
 
-// 根路径重定向到静态文件
+// 根路径重定向到静态文件（根据静态目录返回 index.html）
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../static/index.html'));
+  res.sendFile(path.join(STATIC_DIR, 'index.html'));
 });
 
 // 集成多语言API（本地文件存储）
@@ -306,7 +313,7 @@ process.on('SIGINT', () => {
 function startServer() {
   app.listen(PORT, () => {
     console.log(`🚀 N8N Workflows I18n Server running on port ${PORT}`);
-    console.log(`📁 Static files served from: ${path.join(__dirname, '../static')}`);
+    console.log(`📁 Static files served from: ${STATIC_DIR}`);
     console.log(`🔧 API endpoints available at: http://localhost:${PORT}/api`);
     console.log(`🏥 Health check: http://localhost:${PORT}/health`);
 

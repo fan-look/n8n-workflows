@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node api/server.js",
     "dev": "nodemon api/server.js",
-    "build": "echo 'Build complete'",
+    "build": "node scripts/build.js",
     "serve": "node api/server.js"
   },
   "dependencies": {
