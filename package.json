@@ -7,7 +7,10 @@
     "start": "node api/server.js",
     "dev": "nodemon api/server.js",
     "build": "node scripts/build.js",
-    "serve": "node api/server.js"
+    "serve": "node api/server.js",
+    "deploy": "node scripts/one-click-deploy.js --env development",
+    "deploy:staging": "node scripts/one-click-deploy.js --env staging",
+    "deploy:prod": "node scripts/one-click-deploy.js --env production"
   },
   "dependencies": {
     "compression": "^1.8.1",
