@@ -15,6 +15,8 @@
   <!-- 本地脚本 -->
   <script src="/static/js/i18next-localstorage-backend.js"></script>
   <script src="/static/js/LanguageSwitch.js?v=dev" defer></script>
+  <!-- UI标准（含翻译键规范与工具） -->
+  <script src="/static/styles/i18n-ui-standards.js" defer></script>
   
   <!-- Mermaid -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
@@ -299,6 +301,8 @@
       cursor: pointer;
       transition: background-color 0.2s ease;
       user-select: none;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .language-option:hover {
@@ -1126,8 +1130,10 @@
         document.addEventListener('languageChanged', () => {
           setTimeout(() => {
             this.updatePageTranslations();
-            this.updateUI(); // 重新渲染界面
-          }, 100); // 给一点时间让语言切换完成
+            // 重新填充分类选项以应用最新语言
+            this.populateCategoryFilter();
+            this.updateUI();
+          }, 100);
         });
 
         await this.loadInitialData();
@@ -1389,12 +1395,14 @@
         }
         
         // Add categories in alphabetical order
+        const translator = (window.i18n?.t || window.i18next?.t);
         this.state.categories.forEach(category => {
           const option = document.createElement('option');
           option.value = category;
-          option.textContent = category;
+          const translated = translator ? translator(`categories.${category}`) : category;
+          option.textContent = translated && translated !== `categories.${category}` ? translated : category;
           select.appendChild(option);
-          console.log(`Added category option: ${category}`);
+          console.log(`Added category option: ${category} -> ${option.textContent}`);
         });
         
         console.log(`Category filter populated with ${select.options.length - 1} categories`);
@@ -1580,6 +1588,16 @@
         const complexityClass = `complexity-${workflow.complexity}`;
         const category = this.getWorkflowCategory(workflow.filename);
 
+        // 生成翻译键并尝试获取翻译
+        const translator = (window.i18n?.t || window.i18next?.t);
+        const wfId = (window.I18N_UTILS?.getWorkflowKeyId?.(workflow)) || 'unknown_workflow';
+        const titleKey = (window.I18N_UI_STANDARDS?.contentKeys?.workflowTitle?.(wfId)) || `workflows.${wfId}.title`;
+        const descKey = (window.I18N_UI_STANDARDS?.contentKeys?.workflowDescription?.(wfId)) || `workflows.${wfId}.description`;
+        const tTitleRaw = translator ? translator(titleKey) : null;
+        const tDescRaw = translator ? translator(descKey) : null;
+        const titleText = (!tTitleRaw || tTitleRaw === titleKey) ? workflow.name : tTitleRaw;
+        const descText = (!tDescRaw || tDescRaw === descKey) ? workflow.description : tDescRaw;
+
         const integrations = workflow.integrations.slice(0, 5).map(integration =>
           `<span class="integration-tag">${this.escapeHtml(integration)}</span>`
         ).join('');
@@ -1600,8 +1618,8 @@
                             <span class="trigger-badge">${this.escapeHtml(workflow.trigger_type)}</span>
                         </div>
                         
-                        <h3 class="workflow-title">${this.escapeHtml(workflow.name)}</h3>
-                        <p class="workflow-description">${this.escapeHtml(workflow.description)}</p>
+                        <h3 class="workflow-title" data-i18n="${titleKey}">${this.escapeHtml(titleText)}</h3>
+                        <p class="workflow-description" data-i18n="${descKey}">${this.escapeHtml(descText)}</p>
                         
                         ${workflow.integrations.length > 0 ? `
                             <div class="workflow-integrations">
@@ -1618,8 +1636,20 @@
 
       async openWorkflowDetail(workflow) {
         this.currentWorkflow = workflow;
-        this.elements.modalTitle.textContent = workflow.name;
-        this.elements.modalDescription.textContent = workflow.description;
+        // 生成翻译键并应用到详情弹窗
+        const translator = (window.i18n?.t || window.i18next?.t);
+        const wfId = (window.I18N_UTILS?.getWorkflowKeyId?.(workflow)) || 'unknown_workflow';
+        const titleKey = (window.I18N_UI_STANDARDS?.contentKeys?.workflowTitle?.(wfId)) || `workflows.${wfId}.title`;
+        const descKey = (window.I18N_UI_STANDARDS?.contentKeys?.workflowDescription?.(wfId)) || `workflows.${wfId}.description`;
+        const tTitleRaw = translator ? translator(titleKey) : null;
+        const tDescRaw = translator ? translator(descKey) : null;
+        const titleText = (!tTitleRaw || tTitleRaw === titleKey) ? workflow.name : tTitleRaw;
+        const descText = (!tDescRaw || tDescRaw === descKey) ? workflow.description : tDescRaw;
+
+        this.elements.modalTitle.setAttribute('data-i18n', titleKey);
+        this.elements.modalDescription.setAttribute('data-i18n', descKey);
+        this.elements.modalTitle.textContent = titleText;
+        this.elements.modalDescription.textContent = descText;
 
         // Update stats
         const category = this.getWorkflowCategory(workflow.filename);

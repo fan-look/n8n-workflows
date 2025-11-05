@@ -1,6 +1,11 @@
 (function(){
   // 将 UI 标准暴露为浏览器全局，避免 ESM 语法
   window.I18N_UI_STANDARDS = {
+    // 内容翻译键规范：所有动态工作流文案均按此规则生成键
+    contentKeys: {
+      workflowTitle: (id) => `workflows.${id}.title`,
+      workflowDescription: (id) => `workflows.${id}.description`
+    },
     buttons: {
       primary: {
         base: {
@@ -53,6 +58,21 @@
       if (width < 640) return 'mobile';
       if (width < 1024) return 'tablet';
       return 'desktop';
+    },
+    // 生成稳定的工作流键ID：优先使用文件名（去掉扩展名），否则使用名称的 slug
+    getWorkflowKeyId: (workflow) => {
+      try {
+        if (workflow?.filename) {
+          return String(workflow.filename).replace(/\.json$/i, '');
+        }
+        const name = String(workflow?.name || '').trim();
+        return name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/gi, '_')
+          .replace(/^_+|_+$/g, '');
+      } catch (_) {
+        return 'unknown_workflow';
+      }
     },
     mergeStyles: (...styles) => Object.assign({}, ...styles),
     applyResponsiveStyles: (baseStyles, responsiveStyles) => {

@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>N8N Workflows - Mobile Interface</title>
+    <!-- i18n scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/i18next@23.7.6/dist/umd/i18next.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/i18next-browser-languagedetector@8.0.0/dist/umd/i18nextBrowserLanguageDetector.min.js"></script>
+    <script src="/static/js/i18next-localstorage-backend.js"></script>
+    <script src="/static/js/i18n-config.js" defer></script>
+    <script src="/static/styles/i18n-ui-standards.js" defer></script>
     <style>
         /* Mobile-First CSS Reset */
         * {
@@ -466,7 +472,8 @@
                 this.showLoading(true);
                 
                 try {
-                    const response = await fetch('/api/v2/workflows?limit=20');
+                    // 使用统一 API 路径，并与服务器参数保持一致
+                    const response = await fetch('/api/workflows?per_page=20');
                     const data = await response.json();
                     this.workflows = data.workflows || [];
                     this.filterWorkflows();
@@ -507,11 +514,21 @@
                 grid.style.display = 'grid';
                 emptyState.style.display = 'none';
 
-                grid.innerHTML = this.filteredWorkflows.map(workflow => `
+                grid.innerHTML = this.filteredWorkflows.map(workflow => {
+                    const translator = (window.i18n?.t || window.i18next?.t);
+                    const wfId = (window.I18N_UTILS?.getWorkflowKeyId?.(workflow)) || 'unknown_workflow';
+                    const titleKey = (window.I18N_UI_STANDARDS?.contentKeys?.workflowTitle?.(wfId)) || `workflows.${wfId}.title`;
+                    const descKey = (window.I18N_UI_STANDARDS?.contentKeys?.workflowDescription?.(wfId)) || `workflows.${wfId}.description`;
+                    const tTitleRaw = translator ? translator(titleKey) : null;
+                    const tDescRaw = translator ? translator(descKey) : null;
+                    const titleText = (!tTitleRaw || tTitleRaw === titleKey) ? workflow.name : tTitleRaw;
+                    const descText = (!tDescRaw || tDescRaw === descKey) ? (workflow.description || 'No description available') : tDescRaw;
+
+                    return `
                     <div class="workflow-card" onclick="viewWorkflow('${workflow.filename}')">
                         <div class="workflow-header">
                             <div>
-                                <div class="workflow-title">${workflow.name}</div>
+                                <div class="workflow-title" data-i18n="${titleKey}">${titleText}</div>
                             </div>
                         </div>
                         
@@ -521,8 +538,8 @@
                             <span class="meta-tag">${workflow.node_count} nodes</span>
                         </div>
                         
-                        <div class="workflow-description">
-                            ${workflow.description || 'No description available'}
+                        <div class="workflow-description" data-i18n="${descKey}">
+                            ${descText}
                         </div>
                         
                         <div class="workflow-footer">
@@ -540,8 +557,8 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
-                `).join('');
+                    </div>`;
+                }).join('');
             }
 
             generateStars(rating) {
@@ -583,7 +600,10 @@
         }
 
         // Initialize the interface
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.i18n && window.i18n.initI18next) {
+                try { await window.i18n.initI18next(); } catch (_) {}
+            }
             new MobileWorkflowInterface();
         });
 

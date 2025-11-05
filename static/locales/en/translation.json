@@ -156,4 +156,33 @@
     "view_diagram": "📊 View Diagram",
     "hide_diagram": "📊 Hide Diagram"
   }
+  ,
+  "categories": {
+    "AI Agent Development": "AI Agent Development",
+    "Business Process Automation": "Business Process Automation",
+    "CRM & Sales": "CRM & Sales",
+    "Cloud Storage & File Management": "Cloud Storage & File Management",
+    "Communication & Messaging": "Communication & Messaging",
+    "Creative Content & Video Automation": "Creative Content & Video Automation",
+    "Creative Design Automation": "Creative Design Automation",
+    "Data Processing & Analysis": "Data Processing & Analysis",
+    "E-commerce & Retail": "E-commerce & Retail",
+    "Financial & Accounting": "Financial & Accounting",
+    "Marketing & Advertising Automation": "Marketing & Advertising Automation",
+    "Project Management": "Project Management",
+    "Social Media Management": "Social Media Management",
+    "Technical Infrastructure & DevOps": "Technical Infrastructure & DevOps",
+    "Uncategorized": "Uncategorized",
+    "Web Scraping & Data Extraction": "Web Scraping & Data Extraction"
+  },
+  "workflows": {
+    "0001_Telegram_Schedule_Automation_Scheduled": {
+      "title": "#️⃣Nostr #damus AI Powered Reporting + Gmail + Telegram",
+      "description": "Automated workflow that orchestrates Telegram, Markdown, and Google Gemini to generate and deliver reports. Includes 29 nodes with proper error handling and security."
+    },
+    "1938_Telegram_Schedule_Automation_Scheduled": {
+      "title": "#️⃣Nostr #damus AI Powered Reporting + Gmail + Telegram",
+      "description": "Automated workflow that orchestrates Telegram, Markdown, and Google Gemini to generate and deliver reports. Includes 29 nodes with proper error handling and security."
+    }
+  }
 }

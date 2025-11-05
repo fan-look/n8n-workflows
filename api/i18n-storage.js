@@ -32,8 +32,18 @@ async function writeJsonSafe(filePath, data) {
   }
 }
 
+// 语言代码规范化，确保与本地目录匹配
+function normalizeLanguage(language) {
+  const code = String(language || '').toLowerCase();
+  // 常见映射：i18next 可能返回 zh-CN、en-US 等
+  if (code.startsWith('zh')) return 'zh';
+  if (code.startsWith('en')) return 'en';
+  return language; // 原样返回以允许未来扩展
+}
+
 function getLocaleFile(language) {
-  return path.join(LOCALES_DIR, language, 'translation.json');
+  const normalized = normalizeLanguage(language);
+  return path.join(LOCALES_DIR, normalized, 'translation.json');
 }
 
 async function getSupportedLanguages() {

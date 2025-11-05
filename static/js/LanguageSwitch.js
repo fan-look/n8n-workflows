@@ -112,12 +112,14 @@ class LanguageSwitch {
     option.type = 'button';
     option.setAttribute('role', 'option');
     option.setAttribute('data-language', lang.code);
+    option.setAttribute('aria-selected', 'false');
 
     const flag = document.createElement('span');
     flag.className = 'language-flag';
     flag.textContent = lang.flag;
 
     const text = document.createElement('span');
+    text.className = 'language-text';
     text.textContent = lang.name;
 
     const check = document.createElement('span');
@@ -257,6 +259,7 @@ class LanguageSwitch {
       opt.classList.toggle('active', isActive);
       const check = opt.querySelector('.language-checkmark');
       if (check) check.style.display = isActive ? 'inline' : 'none';
+      opt.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
   }
 
@@ -269,8 +272,27 @@ class LanguageSwitch {
 
     // i18next 未初始化时直接返回，等待初始化事件触发后再切换
     if (typeof window.i18next === 'undefined' || !window.i18next.isInitialized) {
+      const previousLang = this.currentLanguage;
+      this.currentLanguage = langCode;
+      const lang = this.getLanguageByCode(langCode);
+      // 立即更新UI与本地存储，确保点击有反馈
+      this.updateButtonContent(lang);
+      this.updateSelectedOption();
+      this.closeDropdown();
+      if (saveToStorage) {
+        this.storeLanguage(langCode);
+      }
+      // 等 i18next 初始化后再同步语言与翻译
       document.addEventListener('i18next:initialized', () => {
-        this.setLanguage(langCode, saveToStorage);
+        try {
+          window.i18next.changeLanguage(langCode).then(() => {
+            this.updatePageTranslations();
+            this.dispatchLanguageChangeEvent(langCode, previousLang);
+            if (this.options.onLanguageChange) {
+              this.options.onLanguageChange(langCode, lang);
+            }
+          });
+        } catch (_) {}
       }, { once: true });
       return;
     }

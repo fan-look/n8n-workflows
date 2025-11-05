@@ -58,8 +58,9 @@
             return value;
           }
         },
-        ns: ['common', 'workflow'],
-        defaultNS: 'common',
+        // 使用单一命名空间 'translation'，与 translation.json 结构保持一致
+        ns: ['translation'],
+        defaultNS: 'translation',
         pluralSeparator: '_',
         contextSeparator: '_',
         preload: ['en'],
