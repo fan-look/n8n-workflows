@@ -48,4 +48,4 @@ case "$ACTION" in
     echo "用法：./deploy/pm2-manage.sh [start|stop|restart|status|logs] [env]"
     exit 1
     ;;
-fi
+  esac
