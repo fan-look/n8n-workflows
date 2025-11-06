@@ -17,9 +17,17 @@
 const { execSync, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const dotenv = require('dotenv');
 
 const cwd = path.resolve(__dirname, '..');
 const ENV = (process.argv.join(' ').match(/--env\s+(development|staging|production)/) || [])[1] || process.env.NODE_ENV || 'development';
+
+// Load environment file for production/staging if present
+const envFile = ENV === 'production' ? '.env.production' : (ENV === 'staging' ? '.env.staging' : '.env.development');
+const envPath = path.join(cwd, envFile);
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
 
 function log(msg) {
   const ts = new Date().toISOString().replace('T', ' ').replace('Z', '');
@@ -96,8 +104,16 @@ function verifyI18nResources() {
 let serverProc = null;
 function startServer() {
   log('启动后端服务...');
-  const port = ENV === 'production' ? (process.env.PORT || 3000) : 3000;
-  process.env.PORT = port;
+  // Prefer PORT from env files; default to 3000 unless explicitly set
+  let port = 3000;
+  if (process.env.PORT) {
+    port = Number(process.env.PORT);
+  } else if (ENV === 'production') {
+    // If no PORT in env, default to 3000 to match nginx upstream
+    port = 3000;
+  }
+  process.env.PORT = String(port);
+  process.env.HOST = process.env.HOST || '0.0.0.0';
   process.env.NODE_ENV = ENV;
   serverProc = spawn('node', ['api/server.js'], { cwd, env: process.env, stdio: 'inherit' });
 }
@@ -106,7 +122,7 @@ async function healthCheck() {
   log('进行健康检查...');
   const http = require('http');
   const url = `http://127.0.0.1:${process.env.PORT || 3000}/health`;
-  const maxAttempts = 20; // ~20s
+  const maxAttempts = 30; // 30s
   for (let i = 1; i <= maxAttempts; i++) {
     await new Promise(res => setTimeout(res, 1000));
     try {
