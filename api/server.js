@@ -166,6 +166,66 @@ app.get('/api/workflows/:filename', async (req, res) => {
   }
 });
 
+// 获取工作流图表（Mermaid）
+app.get('/api/workflows/:filename/diagram', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const detail = await db.getWorkflowDetail(filename);
+
+    if (!detail || !detail.raw_workflow) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+
+    const nodes = detail.raw_workflow.nodes || [];
+    const connections = detail.raw_workflow.connections || {};
+    const diagram = generateMermaidDiagram(nodes, connections);
+    res.json({ diagram });
+  } catch (error) {
+    console.error('Error generating diagram:', error);
+    res.status(500).json({ error: 'Failed to generate diagram', message: error.message });
+  }
+});
+
+// Mermaid 图表生成工具
+function generateMermaidDiagram(nodes, connections) {
+  if (!nodes || nodes.length === 0) {
+    return 'graph TD\n    A[No nodes found]';
+  }
+
+  let diagram = 'graph TD\n';
+
+  // 添加节点
+  nodes.forEach(node => {
+    const nodeId = sanitizeNodeId(node.name);
+    const nodeType = (node.type && String(node.type).split('.').pop()) || 'unknown';
+    diagram += `    ${nodeId}["${node.name}\\n(${nodeType})"]\n`;
+  });
+
+  // 添加连接
+  if (connections && typeof connections === 'object') {
+    Object.entries(connections).forEach(([sourceNode, outputs]) => {
+      const sourceId = sanitizeNodeId(sourceNode);
+
+      if (outputs && outputs.main) {
+        outputs.main.forEach(outputConnections => {
+          outputConnections.forEach(connection => {
+            const targetId = sanitizeNodeId(connection.node);
+            diagram += `    ${sourceId} --> ${targetId}\n`;
+          });
+        });
+      }
+    });
+  }
+
+  return diagram;
+}
+
+function sanitizeNodeId(nodeName) {
+  return String(nodeName || '')
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 // 触发索引
 app.post('/api/reindex', async (req, res) => {
   try {
@@ -176,6 +236,73 @@ app.post('/api/reindex', async (req, res) => {
     res.json({ message: 'Indexing started' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to start indexing', message: error.message });
+  }
+});
+
+// ===== 分类相关 API =====
+// 从 context 文件读取分类与映射，兼容前端期望
+const CONTEXT_DIR = path.join(process.cwd(), 'context');
+
+// 获取分类列表
+app.get('/api/categories', async (req, res) => {
+  try {
+    const uniqueCategoriesPath = path.join(CONTEXT_DIR, 'unique_categories.json');
+    const searchCategoriesPath = path.join(CONTEXT_DIR, 'search_categories.json');
+
+    // 优先使用预生成的唯一分类文件
+    if (fs.existsSync(uniqueCategoriesPath)) {
+      const raw = fs.readFileSync(uniqueCategoriesPath, 'utf-8');
+      const categories = JSON.parse(raw);
+      return res.json({ categories });
+    }
+
+    // 回退：从 search_categories.json 中提取唯一分类
+    if (fs.existsSync(searchCategoriesPath)) {
+      const raw = fs.readFileSync(searchCategoriesPath, 'utf-8');
+      const searchData = JSON.parse(raw);
+      const unique = new Set();
+      searchData.forEach(item => {
+        if (item && item.category) {
+          unique.add(item.category);
+        } else {
+          unique.add('Uncategorized');
+        }
+      });
+      return res.json({ categories: Array.from(unique).sort() });
+    }
+
+    // 最后兜底
+    return res.json({ categories: ['Uncategorized'] });
+  } catch (error) {
+    console.error('Error loading categories:', error);
+    res.status(500).json({ error: 'Failed to load categories', message: error.message });
+  }
+});
+
+// 获取文件名到分类的映射
+app.get('/api/category-mappings', async (req, res) => {
+  try {
+    const searchCategoriesPath = path.join(CONTEXT_DIR, 'search_categories.json');
+    if (!fs.existsSync(searchCategoriesPath)) {
+      return res.json({ mappings: {} });
+    }
+
+    const raw = fs.readFileSync(searchCategoriesPath, 'utf-8');
+    const searchData = JSON.parse(raw);
+
+    const mappings = {};
+    searchData.forEach(item => {
+      const filename = item && item.filename;
+      const category = (item && item.category) || 'Uncategorized';
+      if (filename) {
+        mappings[filename] = category;
+      }
+    });
+
+    res.json({ mappings });
+  } catch (error) {
+    console.error('Error loading category mappings:', error);
+    res.status(500).json({ error: 'Failed to load category mappings', message: error.message });
   }
 });
 
@@ -211,7 +338,10 @@ app.get('/api/info', (req, res) => {
       'POST /api/i18n/translations/batch',
       'GET /api/i18n/languages',
       'GET /api/workflows',
-      'GET /api/stats'
+      'GET /api/stats',
+      'GET /api/workflows/:filename/diagram',
+      'GET /api/categories',
+      'GET /api/category-mappings'
     ]
   });
 });
