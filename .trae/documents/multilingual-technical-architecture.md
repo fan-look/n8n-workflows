@@ -3,6 +3,7 @@
 ## 1. 架构设计
 
 ### 1.1 整体架构
+
 ```mermaid
 graph TD
     A[用户浏览器] --> B[React前端应用]
@@ -30,6 +31,7 @@ graph TD
 ```
 
 ### 1.2 前端国际化架构
+
 ```mermaid
 graph TD
     A[i18next实例] --> B[语言检测器]
@@ -51,31 +53,42 @@ graph TD
 ## 2. 技术选型
 
 ### 2.1 前端技术栈
-- **国际化库**: i18next + react-i18next
-- **语言检测**: i18next-browser-languagedetector
-- **资源管理**: i18next-resources-to-backend
-- **UI组件库**: 基于现有组件扩展多语言支持
-- **状态管理**: React Context + useState
+
+* **国际化库**: i18next + react-i18next
+
+* **语言检测**: i18next-browser-languagedetector
+
+* **资源管理**: i18next-resources-to-backend
+
+* **UI组件库**: 基于现有组件扩展多语言支持
+
+* **状态管理**: React Context + useState
 
 ### 2.2 后端技术栈
-- **框架**: Node.js + Express/Fastify
-- **数据库**: MySQL 8.0
-- **ORM**: Sequelize/TypeORM
-- **缓存**: Redis（可选，用于语言缓存）
+
+* **框架**: Node.js + Express/Fastify
+
+* **数据库**: MySQL 8.0
+
+* **ORM**: Sequelize/TypeORM
+
+* **缓存**: Redis（可选，用于语言缓存）
 
 ### 2.3 初始化工具
-- **前端项目**: vite-init
-- **依赖管理**: npm/pnpm
+
+* **前端项目**: vite-init
+
+* **依赖管理**: npm/pnpm
 
 ## 3. 路由定义
 
-| 路由 | 用途 |
-|------|------|
-| / | 主页，支持语言切换 |
-| /workflows | 工作流程列表页面 |
-| /workflows/:id | 工作流程详情页面 |
-| /settings/language | 语言设置页面 |
-| /api/i18n/:locale | 获取指定语言的翻译资源 |
+| 路由                 | 用途          |
+| ------------------ | ----------- |
+| /                  | 主页，支持语言切换   |
+| /workflows         | 工作流程列表页面    |
+| /workflows/:id     | 工作流程详情页面    |
+| /settings/language | 语言设置页面      |
+| /api/i18n/:locale  | 获取指定语言的翻译资源 |
 | /api/user/language | 获取/更新用户语言偏好 |
 
 ## 4. API定义
@@ -83,17 +96,20 @@ graph TD
 ### 4.1 语言相关API
 
 #### 获取语言资源
+
 ```
 GET /api/i18n/:locale
 ```
 
 请求参数：
-| 参数名 | 参数类型 | 是否必需 | 描述 |
-|--------|----------|----------|------|
-| locale | string | 是 | 语言代码（en, zh-CN等） |
-| namespace | string | 否 | 命名空间（workflow, ui等） |
+
+| 参数名       | 参数类型   | 是否必需 | 描述                  |
+| --------- | ------ | ---- | ------------------- |
+| locale    | string | 是    | 语言代码（en, zh-CN等）    |
+| namespace | string | 否    | 命名空间（workflow, ui等） |
 
 响应：
+
 ```json
 {
   "locale": "zh-CN",
@@ -107,11 +123,13 @@ GET /api/i18n/:locale
 ```
 
 #### 更新用户语言偏好
+
 ```
 POST /api/user/language
 ```
 
 请求体：
+
 ```json
 {
   "language": "zh-CN"
@@ -119,6 +137,7 @@ POST /api/user/language
 ```
 
 响应：
+
 ```json
 {
   "success": true,
@@ -129,11 +148,13 @@ POST /api/user/language
 ### 4.2 工作流程多语言API
 
 #### 获取工作流程翻译
+
 ```
 GET /api/workflows/:id/translations
 ```
 
 响应：
+
 ```json
 {
   "workflow_id": "123",
@@ -153,6 +174,7 @@ GET /api/workflows/:id/translations
 ## 5. 服务器架构设计
 
 ### 5.1 后端服务架构
+
 ```mermaid
 graph TD
     A[API网关] --> B[认证中间件]
@@ -187,6 +209,7 @@ graph TD
 ```
 
 ### 5.2 语言中间件设计
+
 ```javascript
 // 语言中间件示例
 const languageMiddleware = (req, res, next) => {
@@ -206,6 +229,7 @@ const languageMiddleware = (req, res, next) => {
 ## 6. 数据模型设计
 
 ### 6.1 数据库实体关系图
+
 ```mermaid
 erDiagram
     USER ||--o{ USER_LANGUAGE : has
@@ -272,6 +296,7 @@ erDiagram
 ### 6.2 数据定义语言
 
 #### 语言表 (languages)
+
 ```sql
 -- 创建语言表
 CREATE TABLE languages (
@@ -293,7 +318,8 @@ INSERT INTO languages (code, name, native_name, sort_order) VALUES
 CREATE INDEX idx_languages_active ON languages(is_active);
 ```
 
-#### 用户语言偏好表 (user_languages)
+#### 用户语言偏好表 (user\_languages)
+
 ```sql
 -- 创建用户语言偏好表
 CREATE TABLE user_languages (
@@ -310,7 +336,8 @@ CREATE TABLE user_languages (
 CREATE INDEX idx_user_languages_primary ON user_languages(user_id, is_primary);
 ```
 
-#### 工作流程翻译表 (workflow_translations)
+#### 工作流程翻译表 (workflow\_translations)
+
 ```sql
 -- 创建工作流程翻译表
 CREATE TABLE workflow_translations (
@@ -330,7 +357,8 @@ CREATE TABLE workflow_translations (
 CREATE INDEX idx_workflow_translations_lang ON workflow_translations(language_code);
 ```
 
-#### UI翻译表 (ui_translations)
+#### UI翻译表 (ui\_translations)
+
 ```sql
 -- 创建UI翻译表
 CREATE TABLE ui_translations (
@@ -352,7 +380,9 @@ CREATE INDEX idx_ui_translations_lookup ON ui_translations(language_code, namesp
 ## 7. UI组件多语言方案
 
 ### 7.1 统一UI标准文件
+
 创建 `src/styles/i18n-ui-standards.js`：
+
 ```javascript
 // UI多语言标准定义
 export const I18N_UI_STANDARDS = {
@@ -390,7 +420,9 @@ export const I18N_UI_STANDARDS = {
 ```
 
 ### 7.2 全局样式文件
+
 创建 `src/styles/i18n-global.css`：
+
 ```css
 /* 多语言全局样式 */
 .lang-switch-container {
@@ -447,7 +479,9 @@ export const I18N_UI_STANDARDS = {
 ```
 
 ### 7.3 多语言组件设计
+
 创建 `src/components/LanguageSwitch.jsx`：
+
 ```jsx
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -506,6 +540,7 @@ const LanguageSwitch = () => {
 ## 8. 工作流程节点多语言支持
 
 ### 8.1 节点翻译架构
+
 ```javascript
 // 工作流程节点多语言配置
 const WORKFLOW_NODE_TRANSLATIONS = {
@@ -544,6 +579,7 @@ const WORKFLOW_NODE_TRANSLATIONS = {
 ```
 
 ### 8.2 动态节点翻译加载
+
 ```javascript
 // 动态加载节点翻译
 class WorkflowNodeTranslator {
@@ -576,6 +612,7 @@ class WorkflowNodeTranslator {
 ## 9. 部署和配置方案
 
 ### 9.1 环境配置
+
 ```bash
 # .env.development
 VITE_DEFAULT_LANGUAGE=en
@@ -589,6 +626,7 @@ VITE_I18N_DEBUG=false
 ```
 
 ### 9.2 构建配置
+
 ```javascript
 // vite.config.js
 import { defineConfig } from 'vite';
@@ -614,33 +652,49 @@ export default defineConfig({
 ```
 
 ### 9.3 部署步骤
+
 1. **数据库迁移**: 执行DDL脚本创建多语言相关表
-2. **翻译数据初始化**: 导入基础翻译数据到ui_translations表
+2. **翻译数据初始化**: 导入基础翻译数据到ui\_translations表
 3. **前端构建**: 按语言分包构建，优化加载性能
 4. **后端配置**: 配置语言中间件和API路由
 5. **CDN配置**: 为翻译资源配置CDN缓存策略
 6. **监控配置**: 设置语言使用统计和错误监控
 
 ### 9.4 性能优化
-- **懒加载**: 按页面和命名空间懒加载翻译资源
-- **缓存策略**: 浏览器缓存 + CDN缓存翻译文件
-- **预加载**: 预加载用户偏好语言资源
-- **压缩**: 启用gzip/brotli压缩翻译文件
-- **服务端渲染**: 支持SSR情况下的语言检测和渲染
+
+* **懒加载**: 按页面和命名空间懒加载翻译资源
+
+* **缓存策略**: 浏览器缓存 + CDN缓存翻译文件
+
+* **预加载**: 预加载用户偏好语言资源
+
+* **压缩**: 启用gzip/brotli压缩翻译文件
+
+* **服务端渲染**: 支持SSR情况下的语言检测和渲染
 
 ## 10. 测试策略
 
 ### 10.1 单元测试
-- 翻译函数的正确性测试
-- 语言切换组件的交互测试
-- 日期/数字格式化测试
+
+* 翻译函数的正确性测试
+
+* 语言切换组件的交互测试
+
+* 日期/数字格式化测试
 
 ### 10.2 集成测试
-- API多语言支持测试
-- 工作流程节点翻译测试
-- 用户语言偏好持久化测试
+
+* API多语言支持测试
+
+* 工作流程节点翻译测试
+
+* 用户语言偏好持久化测试
 
 ### 10.3 端到端测试
-- 完整的语言切换流程测试
-- 不同语言下的功能完整性测试
-- RTL语言布局测试
+
+* 完整的语言切换流程测试
+
+* 不同语言下的功能完整性测试
+
+* RTL语言布局测试
+

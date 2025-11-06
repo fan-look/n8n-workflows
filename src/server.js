@@ -39,6 +39,7 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
+      'upgrade-insecure-requests': null,
     },
   },
 }));
