@@ -18,7 +18,7 @@ const db = new WorkflowDatabase();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 安全中间件
+// 安全中间件（HTTP 部署：关闭仅在安全上下文下有效/会产生警告的头）
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -32,13 +32,27 @@ app.use(helmet({
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"]
     }
-  }
+  },
+  // 纯 HTTP 场景下关闭以下头，避免浏览器安全上下文警告
+  crossOriginOpenerPolicy: false, // 禁止设置 COOP
+  crossOriginEmbedderPolicy: false, // 禁止设置 COEP
+  originAgentCluster: false, // 禁止设置 Origin-Agent-Cluster
+  hsts: false, // 不发送 HSTS，避免浏览器强制升级为 HTTPS
+  crossOriginResourcePolicy: false // 不强制 CORP
 }));
+
+// 额外防御：确保不意外发送相关安全头
+app.use((req, res, next) => {
+  res.removeHeader('Cross-Origin-Opener-Policy');
+  res.removeHeader('Origin-Agent-Cluster');
+  res.removeHeader('Cross-Origin-Embedder-Policy');
+  next();
+});
 
 // 性能优化
 app.use(compression());
 
-// CORS配置
+// CORS配置（HTTP 环境下允许跨域访问，可按需收紧）
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -200,196 +214,7 @@ app.get('/api/info', (req, res) => {
   });
 });
 
-// ===== 分类相关 API（移动到 404 之前） =====
-const DEFAULT_CATEGORIES = [
-  'AI Agent Development',
-  'Business Process Automation',
-  'CRM & Sales',
-  'Cloud Storage & File Management',
-  'Communication & Messaging',
-  'Creative Content & Video Automation',
-  'Creative Design Automation',
-  'Data Processing & Analysis',
-  'E-commerce & Retail',
-  'Financial & Accounting',
-  'Marketing & Advertising Automation',
-  'Project Management',
-  'Social Media Management',
-  'Technical Infrastructure & DevOps',
-  'Uncategorized',
-  'Web Scraping & Data Extraction'
-];
-
-// /api/categories 返回可用分类（简单返回名称数组）
-app.get('/api/categories', async (req, res) => {
-  try {
-    res.json({ categories: DEFAULT_CATEGORIES });
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-    res.status(500).json({ error: 'Error fetching categories', details: error.message });
-  }
+// 启动服务
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
-
-// /api/category-mappings 返回 filename -> category 映射
-app.get('/api/category-mappings', async (req, res) => {
-  try {
-    const fs = require('fs');
-    const mappingPath = path.join(process.cwd(), 'context', 'search_categories.json');
-    let mappings = {};
-
-    if (fs.existsSync(mappingPath)) {
-      const raw = fs.readFileSync(mappingPath, 'utf-8');
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        arr.forEach(item => {
-          const filename = item && item.filename;
-          const category = (item && item.category) || 'Uncategorized';
-          if (filename) mappings[filename] = category;
-        });
-      }
-    }
-
-    res.json({ mappings });
-  } catch (error) {
-    console.error('Error fetching category mappings:', error);
-    res.status(500).json({ error: 'Error fetching category mappings', details: error.message });
-  }
-});
-
-// 生成 Mermaid 图接口（与前端 index.html/index-nodejs.html 对齐）
-app.get('/api/workflows/:filename/diagram', async (req, res) => {
-  try {
-    const { filename } = req.params;
-    const detail = await db.getWorkflowDetail(filename);
-    if (!detail || !(detail.raw_workflow || detail.raw_json)) {
-      return res.status(404).json({ error: 'Workflow not found' });
-    }
-
-    const raw = detail.raw_workflow || detail.raw_json;
-    const diagram = generateMermaidDiagram(raw?.nodes || [], raw?.connections || {});
-    return res.json({ diagram });
-  } catch (error) {
-    console.error('Error generating diagram:', error);
-    res.status(500).json({ error: 'Failed to generate diagram', message: error.message });
-  }
-});
-
-// 404处理
-app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    message: 'The requested resource was not found',
-    path: req.path,
-    method: req.method,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// 全局错误处理中间件
-app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error);
-  res.status(error.status || 500).json({
-    error: error.name || 'Internal server error',
-    message: error.message || 'An unexpected error occurred',
-    path: req.path,
-    method: req.method,
-    timestamp: new Date().toISOString(),
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-  });
-});
-
-// 优雅关闭
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  process.exit(0);
-});
-
-// 启动服务器并在后台初始化/索引数据库
-function startServer() {
-  app.listen(PORT, () => {
-    console.log(`🚀 N8N Workflows I18n Server running on port ${PORT}`);
-    console.log(`📁 Static files served from: ${STATIC_DIR}`);
-    console.log(`🔧 API endpoints available at: http://localhost:${PORT}/api`);
-    console.log(`🏥 Health check: http://localhost:${PORT}/health`);
-
-    // 后台初始化与索引
-    db.initialize()
-      .then(() => db.getStats())
-      .then(async (stats) => {
-        console.log('📊 DB Stats:', stats);
-        if (!stats || stats.total === 0) {
-          console.log('⚠️ 数据库为空，开始首次索引工作流...');
-          const res = await db.indexWorkflows(true);
-          console.log('✅ 首次索引完成：', res);
-        }
-      })
-      .catch((err) => {
-        console.error('❌ 数据库初始化失败：', err.message);
-      });
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🛠️  Development mode enabled');
-    }
-  });
-}
-
-// 如果直接运行此文件，则启动服务器
-if (require.main === module) {
-  startServer();
-}
-
-// 生成 Mermaid 图（简化、健壮）
-function generateMermaidDiagram(nodes, connections) {
-  try {
-    if (!Array.isArray(nodes) || nodes.length === 0) {
-      return 'graph TD\n  Empty[No nodes found]';
-    }
-
-    // Map node name to safe ID
-    const idMap = new Map();
-    const sanitize = (name) => String(name || 'unknown')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-
-    let diagram = 'graph TD\n';
-
-    // Add nodes
-    nodes.forEach((node, i) => {
-      const name = node?.name || `Node_${i}`;
-      const id = sanitize(name) || `node_${i}`;
-      idMap.set(name, id);
-      const type = (node?.type || '').split('.').pop();
-      diagram += `  ${id}["${name}\\n(${type || 'unknown'})"]\n`;
-    });
-
-    // Add connections (mermaid: source --> target)
-    if (connections && typeof connections === 'object') {
-      Object.entries(connections).forEach(([sourceName, outputs]) => {
-        const sourceId = idMap.get(sourceName) || sanitize(sourceName) || 'unknown_source';
-        const main = outputs?.main;
-        if (Array.isArray(main)) {
-          main.forEach((outputList) => {
-            if (Array.isArray(outputList)) {
-              outputList.forEach((conn) => {
-                const targetId = idMap.get(conn?.node) || sanitize(conn?.node) || 'unknown_target';
-                diagram += `  ${sourceId} --> ${targetId}\n`;
-              });
-            }
-          });
-        }
-      });
-    }
-
-    return diagram;
-  } catch (_) {
-    return 'graph TD\n  Error[Diagram generation failed]';
-  }
-}
-
-module.exports = app;
