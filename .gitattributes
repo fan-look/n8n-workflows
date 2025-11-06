@@ -1,0 +1,6 @@
+# 仅将 Shell 与 systemd 脚本强制为 LF，避免 Linux 执行报错
+*.sh text eol=lf
+*.service text eol=lf
+
+# 保持其他文本按默认策略处理（避免影响 Windows 开发体验）
+* text=auto
