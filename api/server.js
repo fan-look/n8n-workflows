@@ -166,6 +166,40 @@ app.get('/api/workflows/:filename', async (req, res) => {
   }
 });
 
+// 新增：工作流 JSON 下载端点（兼容子目录）
+app.get('/api/workflows/:filename/download', async (req, res) => {
+  try {
+    const { filename } = req.params;
+
+    // 通过数据库获取文件所属子目录信息
+    const detail = await db.getWorkflowDetail(filename);
+
+    // 构造候选路径（根目录 + 记录的子目录）
+    const rootCandidate = path.join(process.cwd(), 'workflows', filename);
+    let filePath = rootCandidate;
+
+    if (detail && detail.folder && String(detail.folder).trim()) {
+      const folderCandidate = path.join(process.cwd(), 'workflows', detail.folder, filename);
+      if (fs.existsSync(folderCandidate)) {
+        filePath = folderCandidate;
+      }
+    }
+
+    // 校验文件存在
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Workflow file not found', filename });
+    }
+
+    // 设置下载头并发送文件
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.sendFile(filePath);
+  } catch (error) {
+    console.error('Error downloading workflow JSON:', error);
+    return res.status(500).json({ error: 'Failed to download workflow', message: error.message });
+  }
+});
+
 // 获取工作流图表（Mermaid）
 app.get('/api/workflows/:filename/diagram', async (req, res) => {
   try {
