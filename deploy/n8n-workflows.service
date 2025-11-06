@@ -1,0 +1,20 @@
+# 示例：systemd 服务配置（Linux）
+# 复制到 /etc/systemd/system/n8n-workflows.service 并根据需要调整
+
+[Unit]
+Description=n8n-workflows API Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/n8n-workflows
+ExecStart=/usr/bin/node /opt/n8n-workflows/api/server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+StandardOutput=append:/opt/n8n-workflows/logs/systemd-out.log
+StandardError=append:/opt/n8n-workflows/logs/systemd-error.log
+
+[Install]
+WantedBy=multi-user.target
