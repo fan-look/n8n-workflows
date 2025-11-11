@@ -157,9 +157,9 @@
     "hide_diagram": "📊 隐藏图表"
   },
   "categories": {
-    "AI Agent Development": "AI智能体开发",
+    "AI Agent Development": "AI 代理开发",
     "Business Process Automation": "业务流程自动化",
-    "CRM & Sales": "CRM与销售",
+    "CRM & Sales": "CRM 与销售",
     "Cloud Storage & File Management": "云存储与文件管理",
     "Communication & Messaging": "通讯与消息",
     "Creative Content & Video Automation": "创意内容与视频自动化",
@@ -170,17 +170,17 @@
     "Marketing & Advertising Automation": "营销与广告自动化",
     "Project Management": "项目管理",
     "Social Media Management": "社交媒体管理",
-    "Technical Infrastructure & DevOps": "技术基础设施与DevOps",
+    "Technical Infrastructure & DevOps": "技术基础设施与 DevOps",
     "Uncategorized": "未分类",
     "Web Scraping & Data Extraction": "网页抓取与数据提取"
   },
   "workflows": {
     "0001_Telegram_Schedule_Automation_Scheduled": {
-      "title": "#️⃣Nostr #damus AI 报告自动化 + Gmail + Telegram",
+      "title": "#️⃣Nostr #damus AI 驱动报告自动化 + Gmail + Telegram",
       "description": "自动化工作流：通过 Telegram、Markdown、Google Gemini 等集成生成并分发报告，包含 29 个节点，内置错误处理与安全最佳实践。"
     },
     "1938_Telegram_Schedule_Automation_Scheduled": {
-      "title": "#️⃣Nostr #damus AI 报告自动化 + Gmail + Telegram",
+      "title": "#️⃣Nostr #damus AI 驱动报告自动化 + Gmail + Telegram",
       "description": "自动化工作流：通过 Telegram、Markdown、Google Gemini 等集成生成并分发报告，包含 29 个节点，内置错误处理与安全最佳实践。"
     },
     "0057_Activecampaign_Create_Triggered": {
