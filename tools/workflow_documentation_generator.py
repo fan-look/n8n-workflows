@@ -20,6 +20,14 @@ class WorkflowDocumentationGenerator:
             'deployment_guide': self.generate_deployment_guide,
             'troubleshooting': self.generate_troubleshooting_guide
         }
+        self.zh_templates = {
+            'overview_zh': self.generate_overview_zh,
+            'flow_zh': self.generate_flow_zh,
+            'tools_zh': self.generate_tools_zh,
+            'parameters_zh': self.generate_parameters_zh,
+            'credentials_zh': self.generate_credentials_zh,
+            'scenarios_zh': self.generate_scenarios_zh
+        }
         
     def extract_workflow_metadata(self, workflow_data: Dict) -> Dict[str, Any]:
         """Extract comprehensive metadata from workflow"""
@@ -97,6 +105,65 @@ class WorkflowDocumentationGenerator:
             metadata['execution_time_estimate'] = '30+ seconds'
         
         return metadata
+
+    def flatten_parameters(self, obj, prefix=""):
+        result = {}
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                key = f"{prefix}.{k}" if prefix else k
+                if isinstance(v, dict):
+                    result.update(self.flatten_parameters(v, key))
+                elif isinstance(v, list):
+                    result[key] = "list"
+                else:
+                    result[key] = "value"
+        else:
+            result[prefix or "value"] = "value"
+        return result
+
+    def generate_overview_zh(self, workflow_data: Dict, metadata: Dict[str, Any]) -> str:
+        name = metadata['name']
+        desc = metadata['description'] or '自动化工作流：用于数据处理与系统集成。'
+        nodes = metadata['total_nodes']
+        complexity = {'simple': '低', 'moderate': '中', 'complex': '高'}.get(metadata['complexity_level'], '未知')
+        return f"{name}：{desc} 包含 {nodes} 个节点，复杂度 {complexity}。"
+
+    def generate_flow_zh(self, workflow_data: Dict, metadata: Dict[str, Any]) -> str:
+        triggers = metadata['trigger_types']
+        parts = []
+        if triggers:
+            parts.append(f"触发：{', '.join(triggers)}")
+        parts.append(f"处理：经由 {metadata['total_nodes'] - (len(triggers) if triggers else 0)} 个处理节点进行转换与路由")
+        if metadata['integrations']:
+            parts.append(f"集成：涉及 {', '.join(metadata['integrations'])}")
+        return '；'.join(parts)
+
+    def generate_tools_zh(self, workflow_data: Dict, metadata: Dict[str, Any]) -> List[str]:
+        return [str(t) for t in metadata['integrations']] if metadata['integrations'] else []
+
+    def generate_parameters_zh(self, workflow_data: Dict, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        nodes = workflow_data.get('nodes', [])
+        out = {}
+        for node in nodes:
+            node_type = node.get('type', 'Unknown')
+            params = node.get('parameters', {})
+            flattened = self.flatten_parameters(params)
+            keys = sorted(list(flattened.keys()))
+            out.setdefault(node_type, [])
+            out[node_type].extend(keys[:20])
+        return out
+
+    def generate_credentials_zh(self, workflow_data: Dict, metadata: Dict[str, Any]) -> List[str]:
+        return [str(c) for c in sorted(list(metadata['credentials_needed']))] if metadata['credentials_needed'] else []
+
+    def generate_scenarios_zh(self, workflow_data: Dict, metadata: Dict[str, Any]) -> List[str]:
+        scenarios = []
+        if metadata['trigger_types']:
+            scenarios.append('基于触发器的自动化处理与消息通知')
+        if metadata['integrations']:
+            scenarios.append('跨系统数据同步与API集成')
+        scenarios.append('定时任务与批量处理')
+        return scenarios
     
     def extract_env_variables(self, obj, env_vars: set, path=""):
         """Recursively extract environment variables from workflow parameters"""
@@ -621,8 +688,22 @@ curl -X POST "http://your-n8n-instance/api/v1/workflows" \\
                 'deployment_guide': self.generate_deployment_guide(workflow_data, metadata),
                 'troubleshooting_guide': self.generate_troubleshooting_guide(workflow_data, metadata)
             }
-            
-            return documentation
+            zh = {
+                'overview_zh': self.generate_overview_zh(workflow_data, metadata),
+                'flow_zh': self.generate_flow_zh(workflow_data, metadata),
+                'tools_zh': self.generate_tools_zh(workflow_data, metadata),
+                'parameters_zh': self.generate_parameters_zh(workflow_data, metadata),
+                'credentials_zh': self.generate_credentials_zh(workflow_data, metadata),
+                'env_vars': sorted(list(metadata['environment_variables'])) if metadata['environment_variables'] else [],
+                'webhooks': metadata['webhook_endpoints'],
+                'scenarios_zh': self.generate_scenarios_zh(workflow_data, metadata)
+            }
+            return {'markdown': documentation, 'structured': zh, 'meta': {
+                'name': metadata['name'],
+                'total_nodes': metadata['total_nodes'],
+                'integrations': metadata['integrations'],
+                'complexity_level': metadata['complexity_level']
+            }}
             
         except Exception as e:
             return {
@@ -641,6 +722,7 @@ curl -X POST "http://your-n8n-instance/api/v1/workflows" \\
             'summary': {}
         }
         
+        aggregate_json = {}
         for category_dir in self.workflows_dir.iterdir():
             if category_dir.is_dir():
                 category_name = category_dir.name
@@ -657,14 +739,29 @@ curl -X POST "http://your-n8n-instance/api/v1/workflows" \\
                         documentation_results['documented_workflows'] += 1
                         documentation_results['workflow_documentation'][workflow_name] = {
                             'category': category_name,
-                            'documentation': documentation
+                            'documentation': documentation['markdown']
+                        }
+                        aggregate_json[workflow_name] = {
+                            'id': workflow_name,
+                            'filename': f"{workflow_name}.json",
+                            'category': category_name,
+                            'integrations': documentation['meta']['integrations'],
+                            'node_count': documentation['meta']['total_nodes'],
+                            'overview_zh': documentation['structured']['overview_zh'],
+                            'flow_zh': documentation['structured']['flow_zh'],
+                            'tools_zh': documentation['structured']['tools_zh'],
+                            'parameters_zh': documentation['structured']['parameters_zh'],
+                            'credentials_zh': documentation['structured']['credentials_zh'],
+                            'env_vars': documentation['structured']['env_vars'],
+                            'webhooks': documentation['structured']['webhooks'],
+                            'scenarios_zh': documentation['structured']['scenarios_zh']
                         }
                         
                         # Save individual documentation files
                         doc_dir = Path(f"documentation/{category_name}")
                         doc_dir.mkdir(parents=True, exist_ok=True)
                         
-                        for doc_type, doc_content in documentation.items():
+                        for doc_type, doc_content in documentation['markdown'].items():
                             doc_file = doc_dir / f"{workflow_name}_{doc_type}.md"
                             with open(doc_file, 'w', encoding='utf-8') as f:
                                 f.write(doc_content)
@@ -683,7 +780,20 @@ curl -X POST "http://your-n8n-instance/api/v1/workflows" \\
         print(f"   📝 Documented workflows: {documentation_results['documented_workflows']}")
         print(f"   📁 Categories covered: {documentation_results['summary']['categories_covered']}")
         print(f"   📚 Documentation saved to: documentation/ directory")
-        
+        out_dir = Path("docs/api")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with open(out_dir / "workflow-docs.json", 'w', encoding='utf-8') as f:
+            json.dump(aggregate_json, f, ensure_ascii=False, indent=2)
+        coverage_total = documentation_results['total_workflows']
+        coverage_done = documentation_results['documented_workflows']
+        rate = 0 if coverage_total == 0 else round(coverage_done * 100.0 / coverage_total, 2)
+        report_dir = Path("reports")
+        report_dir.mkdir(parents=True, exist_ok=True)
+        with open(report_dir / "workflow_i18n_completion_report.md", 'w', encoding='utf-8') as rf:
+            rf.write(f"# 工作流中文文档覆盖率\n\n")
+            rf.write(f"- 总工作流：{coverage_total}\n")
+            rf.write(f"- 已生成中文文档：{coverage_done}\n")
+            rf.write(f"- 覆盖率：{rate}%\n")
         return documentation_results
 
 def main():

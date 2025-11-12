@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+ #!/usr/bin/env node
 
 /**
  * One-Click Deploy Script
@@ -87,6 +87,20 @@ function initDatabase() {
   }
 }
 
+function generateDocsAndIndex() {
+  log('生成工作流文档与检索索引...');
+  try {
+    run('python tools/workflow_documentation_generator.py');
+  } catch (e) {
+    warn('文档生成失败，继续执行');
+  }
+  try {
+    run('python scripts/generate_search_index.py');
+  } catch (e) {
+    warn('检索索引生成失败，继续执行');
+  }
+}
+
 function verifyI18nResources() {
   log('验证多语言资源...');
   const localesDir = path.join(cwd, 'static', 'locales');
@@ -157,6 +171,7 @@ async function main() {
     installDependencies();
     buildFrontend();
     initDatabase();
+    generateDocsAndIndex();
     verifyI18nResources();
     startServer();
 
