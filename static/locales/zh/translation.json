@@ -137,7 +137,8 @@
     "zoom_in": "放大",
     "zoom_out": "缩小",
     "reset_zoom": "重置缩放",
-    "copy_diagram": "复制图表"
+    "copy_diagram": "复制图表",
+    "workflow_details": "工作流详情"
   },
   "search": {
     "placeholder": "按名称、描述或集成搜索工作流...",

@@ -1,0 +1,168 @@
+{
+  "version": "1.1",
+  "design": {
+    "tokensSource": "static/styles/ui-standards.css",
+    "layouts": {
+      "WorkflowDetail": {
+        "component": "WorkflowDetailPage",
+        "sections": [
+          {"id": "overview", "title": "概述"},
+          {"id": "use_cases", "title": "适用场景"},
+          {"id": "prerequisites", "title": "前置条件"},
+          {"id": "steps", "title": "步骤详解"},
+          {"id": "nodes", "title": "节点解读"},
+          {"id": "integrations", "title": "集成清单"},
+          {"id": "pitfalls", "title": "常见错误与避坑"},
+          {"id": "performance", "title": "性能与配额"},
+          {"id": "seo", "title": "SEO元信息"}
+        ],
+        "actions": [
+          {"id": "import_sample", "label": "一键导入样例"},
+          {"id": "copy_snippet", "label": "复制配置片段"},
+          {"id": "report_translation", "label": "翻译纠错"}
+        ]
+      },
+      "LearnIndex": {
+        "component": "LearnIndexPage",
+        "categories": [
+          {"id": "getting_started", "title": "快速入门"},
+          {"id": "nodes_triggers", "title": "节点与触发器"},
+          {"id": "credentials_security", "title": "凭据与安全"},
+          {"id": "ai_workflows", "title": "AI 工作流"},
+          {"id": "common_integrations", "title": "常见集成"},
+          {"id": "ops_monitoring", "title": "部署运维与监控"}
+        ]
+      },
+      "LearnLesson": {
+        "component": "LearnLessonPage",
+        "sections": [
+          {"id": "objectives", "title": "学习目标"},
+          {"id": "prerequisites", "title": "前置条件"},
+          {"id": "steps", "title": "学习步骤"},
+          {"id": "quiz", "title": "测验"},
+          {"id": "sample_import", "title": "样例导入"}
+        ]
+      }
+    }
+  },
+  "backend": {
+    "schemas": {
+      "Glossary": {
+        "$id": "Glossary",
+        "type": "object",
+        "required": ["term", "translation"],
+        "properties": {
+          "term": {"type": "string"},
+          "translation": {"type": "string"},
+          "domain": {"type": "string", "default": "n8n"},
+          "notes": {"type": "string"},
+          "status": {"type": "string", "enum": ["active", "deprecated"], "default": "active"}
+        }
+      },
+      "TranslationMemory": {
+        "$id": "TranslationMemory",
+        "type": "object",
+        "required": ["source", "target"],
+        "properties": {
+          "source": {"type": "string"},
+          "target": {"type": "string"},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.95},
+          "context": {"type": "string", "enum": ["UI", "WorkflowMeta", "Docs"], "default": "UI"}
+        }
+      },
+      "QAReport": {
+        "$id": "QAReport",
+        "type": "object",
+        "required": ["location", "original", "suggestion"],
+        "properties": {
+          "location": {"type": "string", "description": "文件/页面路径 + 键名"},
+          "original": {"type": "string"},
+          "suggestion": {"type": "string"},
+          "notes": {"type": "string"},
+          "status": {"type": "string", "enum": ["pending", "approved", "rejected"], "default": "pending"}
+        }
+      },
+      "WorkflowMeta": {
+        "$id": "WorkflowMeta",
+        "type": "object",
+        "required": ["slug", "title", "summary"],
+        "properties": {
+          "slug": {"type": "string"},
+          "title": {"type": "string"},
+          "summary": {"type": "string"},
+          "prerequisites": {"type": "array", "items": {"type": "string"}},
+          "steps": {
+            "type": "array",
+            "items": {"type": "object", "properties": {"order": {"type": "integer"}, "title": {"type": "string"}, "content": {"type": "string"}}}
+          },
+          "nodes": {
+            "type": "array",
+            "items": {"type": "object", "properties": {"name": {"type": "string"}, "explain": {"type": "string"}}}
+          },
+          "integrations": {"type": "array", "items": {"type": "string"}},
+          "pitfalls": {"type": "array", "items": {"type": "string"}},
+          "performance": {"type": "object", "properties": {"limits": {"type": "string"}}},
+          "seo": {"type": "object", "properties": {"keywords": {"type": "array", "items": {"type": "string"}}, "desc": {"type": "string"}}}
+        }
+      },
+      "Lesson": {
+        "$id": "Lesson",
+        "type": "object",
+        "required": ["id", "title", "level"],
+        "properties": {
+          "id": {"type": "string"},
+          "title": {"type": "string"},
+          "level": {"type": "string", "enum": ["beginner", "intermediate", "advanced"], "default": "beginner"},
+          "objectives": {"type": "array", "items": {"type": "string"}},
+          "prerequisites": {"type": "array", "items": {"type": "string"}},
+          "steps": {"type": "array", "items": {"type": "object", "properties": {"order": {"type": "integer"}, "title": {"type": "string"}, "content": {"type": "string"}}}},
+          "quiz": {"type": "array", "items": {"type": "object", "properties": {"q": {"type": "string"}, "a": {"type": "string"}}}},
+          "sample_workflow_slug": {"type": "string"}
+        }
+      }
+    },
+    "api": [
+      {"method": "GET", "path": "/api/i18n/health", "desc": "i18n存储健康检查"},
+      {"method": "GET", "path": "/api/i18n/user-language/:userId", "desc": "获取用户语言偏好"},
+      {"method": "POST", "path": "/api/i18n/user-language", "desc": "保存用户语言偏好", "request": {"userId": "string", "language": "string"}},
+      {"method": "GET", "path": "/api/i18n/translations/:language/:namespace", "desc": "按语言/命名空间获取翻译"},
+      {"method": "POST", "path": "/api/i18n/translations/batch", "desc": "批量获取翻译", "request": {"language": "string", "namespaces": ["string"]}},
+      {"method": "GET", "path": "/api/i18n/languages", "desc": "扫描支持语言列表"},
+
+      {"method": "POST", "path": "/api/i18n/qa/report", "desc": "提交翻译纠错", "requestSchema": "QAReport"},
+      {"method": "PUT", "path": "/api/i18n/qa/fix/:id", "desc": "处理纠错并变更状态", "request": {"status": "pending|approved|rejected", "notes": "string"}},
+
+      {"method": "GET", "path": "/api/workflows", "desc": "搜索与分页工作流", "query": {"q": "string", "trigger": "all|Webhook|Scheduled|Manual|Complex", "complexity": "all|low|medium|high", "active_only": "boolean", "page": "integer", "per_page": "integer"}},
+      {"method": "GET", "path": "/api/stats", "desc": "获取统计信息"},
+      {"method": "GET", "path": "/api/workflow/:slug/meta", "desc": "获取工作流详情内容模型"},
+
+      {"method": "GET", "path": "/api/learn/lessons", "desc": "学习课程列表"},
+      {"method": "GET", "path": "/api/learn/lesson/:id", "desc": "学习课程详情"}
+    ]
+  },
+  "frontend": {
+    "state": {
+      "i18n": {"glossary": [], "tm": [], "qaQueue": []},
+      "workflowMeta": {"bySlug": {}, "completenessScore": 0},
+      "learn": {"lessons": [], "progress": {}}
+    },
+    "hooks": {
+      "useGlossary": ["get", "list", "filter", "update"],
+      "useWorkflowMeta(slug)": ["fetch", "render", "score"],
+      "useLearnLessons()": ["list", "fetch", "importSample"],
+      "useQAReport()": ["submit", "getStatus"]
+    },
+    "events": ["Lesson_Start", "Lesson_Finish", "Import_Sample", "Quiz_Pass", "Translation_Report_Submitted", "Translation_Fix_Published"]
+  },
+  "references": [
+    {"file": "api/i18n.js", "line": 30, "note": "健康检查端点"},
+    {"file": "api/i18n.js", "line": 45, "note": "获取用户语言偏好"},
+    {"file": "api/i18n.js", "line": 112, "note": "批量获取翻译"},
+    {"file": "api/i18n.js", "line": 129, "note": "获取支持的语言列表"},
+    {"file": "api/server.js", "line": 105, "note": "工作流搜索入口"},
+    {"file": "api/server.js", "line": 129, "note": "数据库分页查询调用"},
+    {"file": "static/js/i18n-config.js", "line": 1, "note": "i18n初始化"},
+    {"file": "static/locales/zh/translation.json", "line": 63, "note": "中文翻译键集合"},
+    {"file": "scripts/auto_translate_workflows.js", "line": 192, "note": "术语映射与批量处理参考"}
+  ]
+}

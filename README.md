@@ -3,6 +3,14 @@
 基于已确认的多语言技术架构文档，实现了完整的多语言适配功能，支持英文/中文切换，使用 i18next 作为前端国际化库，并采用本地文件存储翻译数据与用户语言偏好。系统集成了工作流数据库、智能搜索、分类管理和可视化图表等高级功能。
 
 ## 🌟 功能特性
+- **统一启动**: 一键启动完整应用，无需分别启动前后端
+- **智能检测**: 自动检测环境配置、依赖安装和端口占用
+- **友好界面**: 彩色日志输出和启动进度显示
+- **自动打开**: 开发模式下自动在浏览器中打开应用
+- **跨平台支持**: Windows、Linux、macOS全平台支持
+- **安全关闭**: 支持优雅关闭和信号处理
+- **环境检查**: Node.js版本检查和必需文件验证
+- **端口管理**: 自动端口冲突检测和处理建议
 - 多语言支持：支持英文和中文切换，自动语言检测
 - 工作流数据库：SQLite数据库存储2000+工作流元数据
 - 智能搜索：支持名称、描述、集成类型等多维度搜索
@@ -17,6 +25,13 @@
 - 翻译数据管理：支持动态添加与更新翻译内容
 
 ## 🏗️ 技术架构
+
+### 统一启动架构
+- **一体化设计**: 前端静态文件由Express后端统一服务，无需分别启动
+- **智能启动器**: `scripts/start-unified.js` 提供完整的启动流程管理
+- **平台脚本**: Windows (`start.bat`) 和 Linux/macOS (`start.sh`) 平台特定优化
+- **环境验证**: 自动检查Node.js版本、依赖安装、端口占用等
+- **错误处理**: 友好的错误提示和解决方案建议
 
 ### 前端技术栈
 - i18next：国际化核心库
@@ -61,13 +76,32 @@ cp .env.example .env
 # 无需数据库配置；使用本地文件存储和SQLite
 ```
 
-### 启动服务
+### 统一启动方式（推荐）
 ```
-# 开发模式
+# 一键启动完整应用（前端+后端一体化）
+npm start
+
+# 或者使用快速启动命令
+npm run quick-start
+
+# 开发模式（带自动重启）
 npm run dev
 
-# 生产模式
-npm start
+# 使用平台特定的启动脚本
+# Windows
+start.bat
+
+# Linux/macOS  
+./start.sh
+```
+
+### 传统启动方式
+```
+# 仅启动后端服务器
+npm run server
+
+# 开发模式（仅后端）
+npm run server:dev
 
 # 使用PM2进程管理器
 npm run pm2:start
@@ -249,17 +283,12 @@ n8n-workflows/
 │   └── nginx.conf               # Nginx配置
 ├── scripts/                     # 脚本工具
 │   ├── scan_workflow_i18n.js    # 工作流i18n扫描
-│   ├── update_readme_stats.py   # README统计更新
 │   └── health-check.sh          # 健康检查脚本
 ├── deploy/                      # 部署文件
 │   ├── WINDOWS_DEPLOY.md        # Windows部署指南
 │   ├── LINUX_DEPLOY.md          # Linux部署指南
 │   ├── nginx-guide.md           # Nginx配置指南
 │   └── pm2-manage.bat           # PM2管理脚本
-├── tools/                       # 开发工具
-│   ├── workflow_validator.py    # 工作流验证器
-│   ├── workflow_fixer.py        # 工作流修复工具
-│   └── workflow_excellence_upgrader.py # 工作流优化工具
 ├── tests/                       # 测试文件
 │   ├── test_api.sh              # API测试脚本
 │   └── test_security.sh         # 安全测试脚本
@@ -271,11 +300,15 @@ n8n-workflows/
 ├── package.json                 # 项目依赖
 ├── ecosystem.config.js          # PM2配置
 ├── Dockerfile                   # Docker镜像
-├── requirements.txt             # Python依赖
 └── README.md                    # 项目文档
 ```
 
 ## 🔧 配置选项
+### 统一启动脚本配置
+- `AUTO_OPEN_BROWSER=true`：开发模式下自动打开浏览器
+- `SHOW_WELCOME_MESSAGE=true`：显示启动欢迎信息
+- `NODE_ENV=development`：运行环境（development/production）
+
 ### 环境变量
 - `PORT=3000`：服务器端口
 - `NODE_ENV=development`：运行环境
@@ -301,7 +334,7 @@ n8n-workflows/
 
 ## 🚀 部署选项
 
-### 本地部署
+### 本地部署（统一启动）
 ```bash
 # 克隆项目
 git clone <repository-url>
@@ -310,11 +343,30 @@ cd n8n-workflows
 # 安装依赖
 npm install
 
-# 配置环境
+# 配置环境（可选）
 cp .env.example .env
 
-# 启动服务
+# 一键启动完整应用
 npm start
+
+# 或者使用平台特定脚本
+# Windows
+start.bat
+
+# Linux/macOS
+./start.sh
+```
+
+### 高级部署选项
+```bash
+# 开发模式（带热重载）
+npm run dev
+
+# 仅启动后端服务
+npm run server
+
+# 使用PM2进程管理器
+npm run pm2:start
 ```
 
 ### Docker部署
