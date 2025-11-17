@@ -10,6 +10,7 @@ class WorkflowSearch {
         this.displayedCount = 0;
         this.resultsPerPage = 20;
         this.isLoading = false;
+        this.workflowDocs = null;
 
         // DOM elements
         this.searchInput = document.getElementById('search-input');
@@ -29,6 +30,7 @@ class WorkflowSearch {
     async init() {
         try {
             await this.loadSearchIndex();
+            await this.loadWorkflowDocs();
             this.setupEventListeners();
             this.populateFilters();
             this.updateStats();
@@ -49,6 +51,19 @@ class WorkflowSearch {
             this.searchIndex = await response.json();
         } finally {
             this.showLoading(false);
+        }
+    }
+
+    async loadWorkflowDocs() {
+        try {
+            const resp = await fetch('api/workflow-docs.json');
+            if (resp.ok) {
+                this.workflowDocs = await resp.json();
+            } else {
+                this.workflowDocs = {};
+            }
+        } catch {
+            this.workflowDocs = {};
         }
     }
 
@@ -279,56 +294,59 @@ class WorkflowSearch {
             .map(tag => `<span class="meta-tag">${tag}</span>`)
             .join('');
 
+        const doc = this.getWorkflowDoc(workflow);
+        const overview = doc ? this.escapeHtml(doc.overview_zh || '') : this.escapeHtml(workflow.description || '');
+        const flow = doc ? this.escapeHtml(doc.flow_zh || '') : '';
+        const tools = doc && doc.tools_zh ? doc.tools_zh.map(t => `<span class="integration-tag">${this.escapeHtml(t)}</span>`).join('') : allIntegrations;
+        const params = doc && doc.parameters_zh ? this.renderParameters(doc.parameters_zh) : '<em>暂无参数信息</em>';
+        const scenarios = doc && doc.scenarios_zh ? doc.scenarios_zh.map(s => `<li>${this.escapeHtml(s)}</li>`).join('') : '';
         modalContent.innerHTML = `
             <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
-
             <h2 style="margin-bottom: 1rem;">${this.escapeHtml(workflow.name)}</h2>
-
-            <div style="margin-bottom: 1.5rem;">
-                <strong>Description:</strong>
-                <p style="margin-top: 0.5rem;">${this.escapeHtml(workflow.description)}</p>
+            <div style="margin-bottom: 1rem; display:grid; grid-template-columns: repeat(2, 1fr); gap: .5rem;">
+                <div><strong>分类:</strong> ${workflow.category}</div>
+                <div><strong>触发:</strong> ${workflow.trigger_type}</div>
+                <div><strong>复杂度:</strong> ${workflow.complexity}</div>
+                <div><strong>节点数:</strong> ${workflow.node_count}</div>
+                <div><strong>状态:</strong> ${workflow.active ? 'Active' : 'Inactive'}</div>
+                <div><strong>文件:</strong> ${workflow.filename}</div>
             </div>
-
-            <div style="margin-bottom: 1.5rem;">
-                <strong>Details:</strong>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.5rem;">
-                    <div><strong>Category:</strong> ${workflow.category}</div>
-                    <div><strong>Trigger:</strong> ${workflow.trigger_type}</div>
-                    <div><strong>Complexity:</strong> ${workflow.complexity}</div>
-                    <div><strong>Nodes:</strong> ${workflow.node_count}</div>
-                    <div><strong>Status:</strong> ${workflow.active ? 'Active' : 'Inactive'}</div>
-                    <div><strong>File:</strong> ${workflow.filename}</div>
+            <div>
+                <div style="display:flex; gap:.5rem; margin-bottom:.5rem;">
+                    <button class="btn" data-tab="overview" onclick="window._switchTab(this)">详介</button>
+                    <button class="btn" data-tab="flow" onclick="window._switchTab(this)">流程</button>
+                    <button class="btn" data-tab="tools" onclick="window._switchTab(this)">工具/参数</button>
+                    <button class="btn" data-tab="scenarios" onclick="window._switchTab(this)">场景</button>
                 </div>
+                <div id="tab-overview" class="tab-pane">${overview}</div>
+                <div id="tab-flow" class="tab-pane" style="display:none;">${flow || '<em>暂无流程信息</em>'}</div>
+                <div id="tab-tools" class="tab-pane" style="display:none;">
+                    <div style="margin-bottom:.5rem; display:flex; flex-wrap:wrap; gap:.25rem;">${tools}</div>
+                    <div>${params}</div>
+                </div>
+                <div id="tab-scenarios" class="tab-pane" style="display:none;"><ul>${scenarios}</ul></div>
             </div>
-
-            <div style="margin-bottom: 1.5rem;">
-                <strong>Integrations:</strong>
-                <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
-                    ${allIntegrations}
-                </div>
-            </div>
-
-            ${workflow.tags.length > 0 ? `
-                <div style="margin-bottom: 1.5rem;">
-                    <strong>Tags:</strong>
-                    <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
-                        ${allTags}
-                    </div>
-                </div>
-            ` : ''}
-
-            <div style="display: flex; gap: 1rem;">
-                <a href="${workflow.download_url}" class="btn btn-primary" target="_blank">
-                    📥 Download JSON
-                </a>
-                <button class="btn btn-secondary" onclick="window.copyWorkflowId('${workflow.filename}')">
-                    📋 Copy Filename
-                </button>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <a href="${workflow.download_url}" class="btn btn-primary" target="_blank">📥 下载 JSON</a>
+                <button class="btn btn-secondary" onclick="window.copyWorkflowId('${workflow.filename}')">📋 复制文件名</button>
             </div>
         `;
 
         modal.appendChild(modalContent);
         return modal;
+    }
+
+    getWorkflowDoc(workflow) {
+        const key = workflow.filename.replace('.json', '');
+        return (this.workflowDocs && this.workflowDocs[key]) ? this.workflowDocs[key] : null;
+    }
+
+    renderParameters(parameters) {
+        const sections = Object.entries(parameters).slice(0, 6).map(([type, keys]) => {
+            const items = keys.slice(0, 20).map(k => `<code>${this.escapeHtml(k)}</code>`).join(', ');
+            return `<div style="margin:.5rem 0;"><strong>${this.escapeHtml(type)}</strong>: ${items}</div>`;
+        }).join('');
+        return sections || '<em>暂无参数信息</em>';
     }
 
     updateResultsHeader(query, filters) {
@@ -431,6 +449,17 @@ window.copyWorkflowId = function(filename) {
             btn.textContent = originalText;
         }, 2000);
     });
+};
+
+window._switchTab = function(btn) {
+    const paneIds = ['tab-overview','tab-flow','tab-tools','tab-scenarios'];
+    paneIds.forEach(id => {
+        const el = btn.closest('div').parentElement.querySelector(`#${id}`);
+        if (el) el.style.display = 'none';
+    });
+    const target = btn.getAttribute('data-tab');
+    const activeEl = btn.closest('div').parentElement.querySelector(`#tab-${target}`);
+    if (activeEl) activeEl.style.display = 'block';
 };
 
 // Initialize search when page loads
